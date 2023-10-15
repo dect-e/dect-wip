@@ -1,0 +1,13 @@
+[Unit]
+Description=Start DECT-Self-Registration
+After=network.target
+Wants=network-online.target
+
+[Service]
+Restart=always
+Type=simple
+ExecStart=/opt/dect-wip/_start_app.sh
+Environment=
+
+[Install]
+WantedBy=multi-user.target

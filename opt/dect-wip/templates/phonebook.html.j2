@@ -1,0 +1,69 @@
+{% extends 'base.html.j2' %}
+
+{% block content %}
+
+<!-- Überschrift -->
+
+    <div class="container-xl mt-3 mb-3">
+        <p class="h3">offizielles™ ADE-USS-DECT-Telefonbuch:</p>
+    </div>
+
+    <!-- Suchfeld -->
+
+    <div class="container-xl mb-3">
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="search" class="form-control" id="searchExtName" placeholder="Suche nach Rufnummer oder Name"
+                onkeyup="searchExtName()">
+        </div>
+    </div>
+
+    <!-- Tabelle -->
+
+    <div class="container-xl">
+        <table class="table table-striped" id="phonebook">
+            <thead>
+                <tr class="table-primary">
+                    <th scope="col" class="col-2">Rufnummer</th>
+                    <th scope="col" class="col-2">Name</th>
+                    <th scope="col">Info</th>
+                </tr>
+            </thead>
+            <tbody>
+
+            {% for ext in exts %}
+                <tr>
+                    <td>{{ext.extension}}</td>
+                    <td>{{ext.name}}</td>
+                    <td>{{ext.info}}</td>
+                <td>
+            {% endfor %}
+
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Searching JS -->
+
+    <script>
+        function searchExtName() {
+            var filter = document.getElementById("searchExtName").value;
+            var lines = document.getElementById("phonebook").getElementsByTagName("tr");
+
+            //for every entry except title bar, get extension and name
+            for (i = 1; i < lines.length; i++) {
+
+                var extension = lines[i].getElementsByTagName("td")[0].textContent;
+                var name = lines[i].getElementsByTagName("td")[1].textContent;
+
+                filter = filter.toUpperCase()
+                if ( extension.toUpperCase().includes(filter) || name.toUpperCase().includes(filter) ) {
+                    lines[i].style.display = "";
+                } else {
+                    lines[i].style.display = "none";
+                }
+            }
+        }
+    </script>
+
+{% endblock %}
