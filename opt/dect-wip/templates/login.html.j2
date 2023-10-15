@@ -1,0 +1,66 @@
+{% extends 'base.html.j2' %}
+
+{% block content %}
+
+<!-- Überschrift -->
+
+<div class="container-xl mt-3 mb-3">
+    <p class="h3">Login</p>
+</div>
+
+<!-- Forms -->
+
+<div class="container-xl">
+
+    {% if info_message|length > 0 %}
+    <div class="alert alert-info" role="alert">
+      {{ info_message }}
+    </div>
+    {% endif %}
+
+    {% if error_message|length > 0 %}
+    <div class="alert alert-danger" role="alert">
+      {{ error_message }}
+    </div>
+    {% endif %}
+
+    <!-- Login-Form -->
+    <form action="/login/" method="POST">
+      <input type="hidden" name="action" value="login">
+      <div class="mb-3">
+        <label class="form-label">Username</label>
+        <input type="text" class="form-control" name="username" aria-describedby="username">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-control" name="password">
+      </div>
+      <button type="submit" class="btn btn-primary">Login</button>
+    </form>
+
+    <br>
+    <br>
+    <br>
+    <br>
+
+    <!-- Register-Form -->
+    <form action="/login/" method="POST">
+      <input type="hidden" name="action" value="register">
+      <div class="mb-3">
+        <label class="form-label">Username</label>
+        <input type="text" class="form-control" name="username" aria-describedby="username">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-control" name="password1">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">repeat Password</label>
+        <input type="password" class="form-control" name="password2">
+      </div>
+      <button type="submit" class="btn btn-primary">Register</button>
+    </form>
+
+</div>
+
+{% endblock %}

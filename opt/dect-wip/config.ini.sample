@@ -1,0 +1,12 @@
+[flask]
+secret_key = '7355608'
+
+[omm]
+ip = 10.10.10.10
+port = 12621
+username = ade
+password = ade
+
+[asterisk]
+pjsip_wizard_user_conf = /etc/asterisk/pjsip_wizard_user.conf
+pjsip_wizard_temp_conf = /etc/asterisk/pjsip_wizard_temp.conf

@@ -1,0 +1,338 @@
+import configparser
+import pprint
+from datetime import timedelta
+
+import flask
+import mitel_ommclient2
+from flask import Flask, render_template, request, jsonify, make_response, Response, redirect
+from flask_sqlalchemy import SQLAlchemy
+from flask_apscheduler import APScheduler
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+import utilities
+import argon2
+import os
+import namegenerator
+import html
+
+## Read Configuration
+
+print('Make sure Subscription and Auto-Create are enabled')
+
+config = configparser.ConfigParser()
+config.read('config.ini')
+
+omm_ip = config['omm'].get('ip')
+omm_port = config['omm'].getint('port')
+omm_username = config['omm'].get('username')
+omm_password = config['omm'].get('password')
+
+pjsip_wizard_user_conf = config['asterisk'].get('pjsip_wizard_user_conf')
+pjsip_wizard_temp_conf = config['asterisk'].get('pjsip_wizard_temp_conf')
+
+database_name = 'database.sqlite3'
+
+db = SQLAlchemy()
+app = Flask(__name__)
+scheduler = APScheduler()
+login_manager = LoginManager()
+
+client = mitel_ommclient2.OMMClient2(host=omm_ip, port=omm_port, username=omm_username, password=omm_password, ommsync=True)
+
+
+class UserExtension(db.Model):
+    extension = db.Column(db.String(20), primary_key=True)
+    password = db.Column(db.String(20))
+    name = db.Column(db.String(20))
+    info = db.Column(db.String(20))
+    token = db.Column(db.String(20))
+
+    # Add a foreign key to reference the User model's primary key (id)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    # Create a relationship with the User model
+    user = db.relationship('User', backref='extensions', lazy=True)
+
+class TempExtension(db.Model):
+    extension = db.Column(db.String(20), primary_key=True)
+    password = db.Column(db.String(20))
+    uid = db.Column(db.Integer)
+    ppn = db.Column(db.Integer)
+
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(32), nullable=False)
+    displayname = db.Column(db.String(32), nullable=False)
+    password = db.Column(db.String(128), nullable=False)
+    is_active = True
+    is_authenticated = True
+
+    def get_id(self):
+        return self.id
+
+
+## LoginTools
+
+@login_manager.user_loader
+def load_user(user_id):
+    query_result = db.session.execute(db.select(User).filter_by(id=user_id)).all()
+    if len(query_result) == 1:
+        return query_result[0][0]
+
+    return None
+
+## Routes
+
+
+@app.route('/')
+def default(): 
+    return redirect("/phonebook/", code=302)
+    #return render_template('base.html.j2', default_data=fetch_default_data_for_templates())
+
+
+@app.route('/login/', methods=['GET', 'POST'])
+def login():
+    error_message = ''
+    info_message = ''
+
+    # POST - Register or Login?
+    if request.method == 'POST':
+        # REGISTER
+        if request.form.get('action') == 'register':
+
+            username = str(request.form.get('username'))
+            password1 = str(request.form.get('password1'))
+            password2 = str(request.form.get('password2'))
+
+            if username == '' or username is None:
+                error_message = 'empty Username is not allowed'
+            elif password1 == '' or password1 is None:
+                error_message = 'empty Password is not allowed'
+            elif password1 != password2:
+                error_message = 'Passwords don\'t match'
+            else:
+                # continue with register
+                displayname = username
+                username = username.lower()
+
+                # check if username is not already in database
+                query_result = db.session.execute(db.select(User).filter_by(username=username)).all()
+
+                if len(query_result) > 0:
+                    error_message = 'User already exists'
+                else:
+                    hasher = argon2.PasswordHasher()
+
+                    user = User()
+                    user.username = username
+                    user.displayname = displayname
+                    user.password = hasher.hash(password=password1)
+
+                    db.session.add(user)
+                    db.session.commit()
+
+                    info_message = 'account created'
+
+
+        # LOGIN
+        elif request.form.get('action') == 'login':
+
+            username = str(request.form.get('username')).lower()
+            password = str(request.form.get('password'))
+
+            if username == '' or username is None:
+                error_message = 'empty Username is not allowed'
+            elif password == '' or password is None:
+                error_message = 'empty Password is not allowed'
+            else:
+
+                query_result = db.session.execute(db.select(User).filter_by(username=username)).all()
+
+                if len(query_result) == 1:
+                    user = query_result[0][0]  # first [0] is to select first result, [0] is to access the class user
+                    try:
+                        hasher = argon2.PasswordHasher()
+                        pprint.pprint(hasher.verify(hash=user.password, password=password))
+
+                        login_user(user, remember=True,duration=timedelta(days=1))
+                        return redirect("/myextensions/", code=302)
+                    except argon2.exceptions.VerifyMismatchError:
+                        print(username + ' argon2 verification for password failed')
+                        error_message = 'wrong login'
+                else:
+                    print("login: " + username + ' ' + str(len(query_result)) + ' in Database. Don\'t allow login')
+                    error_message = 'wrong login'
+
+    # Fallback - used if login not successful or no login attempt
+    return render_template('login.html.j2', default_data=fetch_default_data_for_templates(), error_message=error_message, info_message=info_message)
+
+
+@app.route('/logout/', methods=['GET'])
+def logout():
+    logout_user()
+    return redirect("/login/", code=302)
+
+
+@app.route('/phonebook/')
+def phonebook():
+    query_result = db.session.execute(db.select(UserExtension).order_by(UserExtension.extension.asc())).all()
+
+    exts = [x[0] for x in query_result]
+
+    return render_template('phonebook.html.j2', default_data=fetch_default_data_for_templates(), exts=exts)
+
+@app.route('/connect/', methods=['POST'])
+def connect():
+
+    if request.method == 'POST':
+        req_json = request.get_json()
+
+        selection = db.select(UserExtension).filter_by(token = req_json['token'])
+        ext = db.session.execute(selection).first()
+        ext = ext[0] # script will fail here with extenstion if token is wrong - fix this
+        extension = ext.extension
+        password = ext.password
+        displayname = ext.name
+
+        selection = db.select(TempExtension).filter_by(extension = req_json['callerid'])
+        temp_ext = db.session.execute(selection).first()
+        temp_ext = temp_ext[0]
+        ppn = temp_ext.ppn
+        uid = temp_ext.uid
+
+        print(ppn)
+        print(uid)
+
+        client.detach_user_device(uid,ppn)
+
+        newuser = client.create_user(extension)
+        client.set_user_sipauth(newuser.uid, extension, password)
+        client.set_user_name(newuser.uid, displayname)
+        
+        print(client.attach_user_device(int(newuser.uid), ppn))
+        #client.delete_user(uid)
+
+        response = make_response(jsonify( {"message": "extension added"}), 200)
+        return response
+
+
+@app.route('/myextensions/', methods=['POST', 'DELETE', 'GET'])
+@login_required
+def myextensions():
+
+    if request.method == 'POST':
+        req_json = request.get_json()
+        ext = UserExtension()
+
+        ext.extension = html.escape(req_json['extension'])
+        ext.password = utilities.getRandomNumber(20)
+        ext.name = html.escape(req_json['name'])
+        ext.info = html.escape(req_json['info'])
+        ext.token = utilities.getRandomNumber(8)
+        ext.user_id = current_user.id
+
+        if len(ext.extension) == 4 and ext.extension.isdigit():
+            db.session.add(ext)
+            db.session.commit()
+
+            response = make_response(jsonify( {"message": "extension added"}), 200)
+
+        else:
+            response = make_response(jsonify( {"message": "you need 4 digits"}), 400)
+        return response
+
+    if request.method == 'DELETE':
+
+        req_json = request.get_json()
+        selection = db.select(UserExtension).filter_by(extension = req_json['extension'])
+        ext = db.session.execute(selection).first()
+
+        ext = ext[0]
+
+        if ext.user_id == current_user.id:
+            db.session.delete(ext)
+            db.session.commit()
+
+            response = make_response(jsonify( {"message": "extension deleted"}), 200)
+        else:
+            response = make_response(jsonify( {"message": "extension not owned by user"}), 403)
+        return response
+
+    if request.method == 'GET':
+        query_result = db.session.execute(db.select(UserExtension).filter_by(user_id=current_user.id)).all()
+
+        exts = [ x[0] for x in query_result ] 
+
+        return render_template('myextensions.html.j2', default_data=fetch_default_data_for_templates(), exts=exts)
+
+
+def writePjsip():
+
+    query_result = db.session.execute(db.select(UserExtension)).all()
+    userExts = [ x[0] for x in query_result ] 
+    utilities.pjsipConfig(pjsip_wizard_user_conf, userExts, "user_dect")
+
+    query_result = db.session.execute(db.select(TempExtension)).all()
+    tempExts = [ x[0] for x in query_result ] 
+    utilities.pjsipConfig(pjsip_wizard_temp_conf, tempExts, "temp_dect")
+
+
+def makeTemps():
+
+    for device in list(client.find_devices(lambda d: d.relType == mitel_ommclient2.types.PPRelTypeType("Unbound"))):
+        extension = 't_' + namegenerator.generate_name() + utilities.getRandomNumber(4)
+        password = utilities.getRandomStr(20)
+
+        newuser = client.create_user(extension)
+        client.set_user_sipauth(newuser.uid, extension, password)
+        client.set_user_name(newuser.uid, extension[2:21])
+        client.attach_user_device(int(newuser.uid), int(device.ppn))
+
+        ext = TempExtension()
+
+        ext.extension = extension
+        ext.password = password
+        ext.uid = int(newuser.uid)
+        ext.ppn = int(device.ppn)
+
+        db.session.add(ext)
+        db.session.commit()
+
+
+def trigger():
+    with app.app_context():
+        writePjsip()
+        makeTemps()
+        os.system('asterisk -rx "pjsip reload"')
+
+
+def fetch_default_data_for_templates():
+    data = {'displayname': ''}
+
+    if current_user.is_authenticated:
+        data['displayname'] = current_user.displayname
+
+    return data
+
+
+if __name__ == "__main__":
+    # database stuff
+    #import caribou
+    #caribou.upgrade('instance/' + database_name, 'migrations/')
+
+    # init flask
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + database_name
+    app.secret_key = config['flask'].get('secret_key')
+    login_manager.init_app(app)
+    db.init_app(app)
+    scheduler.init_app(app)
+
+    scheduler.add_job(id='trigger', func=trigger, trigger='interval', seconds=5)
+    scheduler.start()
+
+    with app.app_context():
+        db.create_all()
+
+    # run webserver/app
+    app.run(host='0.0.0.0', port=8080, debug=True, use_reloader=False)
+

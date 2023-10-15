@@ -1,0 +1,1 @@
+ffmpeg -i netzansage.mp3 -ar 16000 -acodec g722 -b:a 64k netzansage.g722

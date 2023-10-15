@@ -1,0 +1,134 @@
+{% extends 'base.html.j2' %}
+
+{% block content %}
+
+<!-- Überschrift -->
+
+<div class="container-xl mt-3 mb-3">
+    <p class="h3">Meine Rufnummern</p>
+</div>
+
+<!-- Übersicht -->
+
+<div class="container-xl mt-3 mb-3">
+    <p class="h5">Übersicht</p>
+</div>
+
+<!-- Tabelle -->
+
+<div class="container-xl">
+    <table class="table table-striped align-middle" id="phonebook">
+        <thead>
+            <tr class="table-primary">
+                <th scope="col" class="col-2">Rufnummer</th>
+                <th scope="col" class="col-2">Name</th>
+                <th scope="col">Info</th>
+                <th scope="col">Token</th>
+                <th scope="col" class="col-1">Löschen</th>
+
+            </tr>
+        </thead>
+        <tbody>
+
+        {% for ext in exts %}
+            <tr>
+                <td>{{ext.extension}}</td>
+                <td>{{ext.name}}</td>
+                <td>{{ext.info}}</td>
+                <td>{{ext.token}}</td>
+            <td>
+                    <button type="submit" class="btn btn-danger" onclick="delEntry('{{ext.extension}}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        {% endfor %}
+
+        </tbody>
+    </table>
+</div>
+
+<!-- Neue Rufnummer -->
+
+<div class="container-xl mt-3 mb-3">
+    <p class="h5">Neue Rufnummer anlegen</p>
+</div>
+
+<!-- Neue Rufnummer -->
+
+<div class="container-xl">
+    <div class="row align-items-start">
+        <div class="input-group">
+            <label for="extension" class="input-group-text"><i class="bi bi-telephone"></i></label>
+            <input type="tel" name="extension" class="form-control" id="extension" placeholder="Rufnummer 4-Digits">
+        </div>
+        <div class="input-group mt-2">
+            <label for="name" class="input-group-text"><i class="bi bi-person"></i></label>
+            <input type="text" name="name" class="form-control" id="name" placeholder="Name">
+        </div>
+        <div class="input-group mt-2">
+            <label for="info" class="input-group-text"><i class="bi bi-info-circle"></i></label>
+            <input type="text" name="info" class="form-control" id="info" placeholder="Info">
+        </div>
+        <div class="mt-2">
+            <button type="submit" class="btn btn-success" onclick="addEntry()">
+                <i class="bi bi-caret-right-fill me-2"></i>Nummer anlegen</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Entry JS -->
+
+<script>
+    async function delEntry(extension) {
+
+        var entry = {
+            extension: extension,
+        };
+
+        fetch(`${window.origin}/myextensions/`, {
+            method: "DELETE",
+            credentials: "include",
+            body: JSON.stringify(entry),
+            cache: "no-cache",
+            headers: new Headers({
+                "content-type": "application/json"
+            })
+        })
+        .then(() => {
+            window.location.reload();
+        })
+    }
+</script>
+
+
+<script>
+    async function addEntry() {
+        var extension = document.getElementById("extension");
+        var name = document.getElementById("name");
+        var info = document.getElementById("info");
+
+        var entry = {
+            extension: extension.value,
+            name: name.value,
+            info: info.value
+        };
+
+        fetch(`${window.origin}/myextensions/`, {
+            method: "POST",
+            credentials: "include",
+            body: JSON.stringify(entry),
+            cache: "no-cache",
+            headers: new Headers({
+                "content-type": "application/json"
+            })
+        })
+        .then(() => {
+            window.location.reload();
+        })
+        
+    }
+</script>
+
+
+{% endblock %}
