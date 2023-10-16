@@ -14,6 +14,7 @@ import os
 import namegenerator
 import html
 
+
 ## Read Configuration
 
 print('Make sure Subscription and Auto-Create are enabled')
@@ -31,44 +32,13 @@ pjsip_wizard_temp_conf = config['asterisk'].get('pjsip_wizard_temp_conf')
 
 database_name = 'database.sqlite3'
 
-db = SQLAlchemy()
 app = Flask(__name__)
+from database import db # database object
+from database import UserExtension,TempExtension,User # database models
 scheduler = APScheduler()
 login_manager = LoginManager()
 
 client = mitel_ommclient2.OMMClient2(host=omm_ip, port=omm_port, username=omm_username, password=omm_password, ommsync=True)
-
-
-class UserExtension(db.Model):
-    extension = db.Column(db.String(20), primary_key=True)
-    password = db.Column(db.String(20))
-    name = db.Column(db.String(20))
-    info = db.Column(db.String(20))
-    token = db.Column(db.String(20))
-
-    # Add a foreign key to reference the User model's primary key (id)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-
-    # Create a relationship with the User model
-    user = db.relationship('User', backref='extensions', lazy=True)
-
-class TempExtension(db.Model):
-    extension = db.Column(db.String(20), primary_key=True)
-    password = db.Column(db.String(20))
-    uid = db.Column(db.Integer)
-    ppn = db.Column(db.Integer)
-
-
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(32), nullable=False)
-    displayname = db.Column(db.String(32), nullable=False)
-    password = db.Column(db.String(128), nullable=False)
-    is_active = True
-    is_authenticated = True
-
-    def get_id(self):
-        return self.id
 
 
 ## LoginTools
