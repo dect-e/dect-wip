@@ -2,6 +2,7 @@
 **/__pycache__
 
 opt/dect-wip/venv
+opt/dect-wip-ommsync/venv
+opt/dect-wip-mitel-phonebook/venv
 opt/dect-wip/instance/
 opt/dect-wip/config.ini
-opt/phonebook/venv
