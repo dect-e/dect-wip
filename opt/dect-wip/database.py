@@ -1,15 +1,16 @@
 
+from dataclasses import dataclass
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
-
+@dataclass
 class UserExtension(db.Model):
-    extension = db.Column(db.String(20), primary_key=True)
-    password = db.Column(db.String(20))
-    name = db.Column(db.String(20))
-    info = db.Column(db.String(20))
-    token = db.Column(db.String(20))
+    extension: str = db.Column(db.String(20), primary_key=True)
+    password: str = db.Column(db.String(20))
+    name: str = db.Column(db.String(20))
+    info: str = db.Column(db.String(20))
+    token: str = db.Column(db.String(20))
 
     # Add a foreign key to reference the User model's primary key (id)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -17,12 +18,12 @@ class UserExtension(db.Model):
     # Create a relationship with the User model
     user = db.relationship('User', backref='extensions', lazy=True)
 
+@dataclass
 class TempExtension(db.Model):
-    extension = db.Column(db.String(20), primary_key=True)
-    password = db.Column(db.String(20))
-    uid = db.Column(db.Integer)
-    ppn = db.Column(db.Integer)
-
+    extension: str = db.Column(db.String(20), primary_key=True)
+    password: str = db.Column(db.String(20))
+    uid: int = db.Column(db.Integer)
+    ppn: int = db.Column(db.Integer)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
