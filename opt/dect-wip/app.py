@@ -230,9 +230,13 @@ def AddTempExtensionToDB():
 def phonebook_json():
     query_result = db.session.execute(db.select(UserExtension).order_by(UserExtension.extension.asc())).all()
 
-    phonebook = [x[0] for x in query_result]
+    names_and_extensions = []
 
-    return jsonify(phonebook)
+    print(query_result)
+    for entry in query_result:
+        names_and_extensions.append({"extension": entry[0].extension, "name": entry[0].name})
+
+    return jsonify(names_and_extensions)
 
 
 def writePjsip():
