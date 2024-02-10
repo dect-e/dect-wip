@@ -3,7 +3,6 @@ import pprint
 from datetime import timedelta
 
 import flask
-import mitel_ommclient2
 from flask import Flask, render_template, request, jsonify, make_response, Response, redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_apscheduler import APScheduler
@@ -17,15 +16,8 @@ import html
 
 ## Read Configuration
 
-print('Make sure Subscription and Auto-Create are enabled')
-
 config = configparser.ConfigParser()
 config.read('config.ini')
-
-omm_ip = config['omm'].get('ip')
-omm_port = config['omm'].getint('port')
-omm_username = config['omm'].get('username')
-omm_password = config['omm'].get('password')
 
 pjsip_wizard_user_conf = config['asterisk'].get('pjsip_wizard_user_conf')
 pjsip_wizard_temp_conf = config['asterisk'].get('pjsip_wizard_temp_conf')
@@ -38,7 +30,6 @@ from database import UserExtension,TempExtension,User # database models
 scheduler = APScheduler()
 login_manager = LoginManager()
 
-client = mitel_ommclient2.OMMClient2(host=omm_ip, port=omm_port, username=omm_username, password=omm_password, ommsync=True)
 
 
 ## LoginTools
@@ -151,40 +142,6 @@ def phonebook():
 
     return render_template('phonebook.html.j2', default_data=fetch_default_data_for_templates(), exts=exts)
 
-@app.route('/connect/', methods=['POST'])
-def connect():
-
-    if request.method == 'POST':
-        req_json = request.get_json()
-
-        selection = db.select(UserExtension).filter_by(token = req_json['token'])
-        ext = db.session.execute(selection).first()
-        ext = ext[0] # script will fail here with extenstion if token is wrong - fix this
-        extension = ext.extension
-        password = ext.password
-        displayname = ext.name
-
-        selection = db.select(TempExtension).filter_by(extension = req_json['callerid'])
-        temp_ext = db.session.execute(selection).first()
-        temp_ext = temp_ext[0]
-        ppn = temp_ext.ppn
-        uid = temp_ext.uid
-
-        print(ppn)
-        print(uid)
-
-        client.detach_user_device(uid,ppn)
-
-        newuser = client.create_user(extension)
-        client.set_user_sipauth(newuser.uid, extension, password)
-        client.set_user_name(newuser.uid, displayname)
-        
-        print(client.attach_user_device(int(newuser.uid), ppn))
-        #client.delete_user(uid)
-
-        response = make_response(jsonify( {"message": "extension added"}), 200)
-        return response
-
 
 @app.route('/myextensions/', methods=['POST', 'DELETE', 'GET'])
 @login_required
@@ -236,6 +193,52 @@ def myextensions():
         return render_template('myextensions.html.j2', default_data=fetch_default_data_for_templates(), exts=exts)
 
 
+## API V1
+
+@app.route('/api/v1/GetUserExtensionByToken/<token>', methods=['GET'])
+def GetUserExtensionByToken(token):
+    selection = db.select(UserExtension).filter_by(token = token)
+    ext = db.session.execute(selection).first()
+    return jsonify(ext[0])
+
+@app.route('/api/v1/GetTempExtensionByCallerid/<callerid>', methods=['GET'])
+def GetTempExtensionByCallerid(callerid):
+    selection = db.select(TempExtension).filter_by(extension = callerid)
+    temp_ext = db.session.execute(selection).first()
+    return jsonify(temp_ext[0])
+
+@app.route('/api/v1/AddTempExtensionToDB', methods=['POST'])
+def AddTempExtensionToDB():
+
+    req_json = request.get_json()
+    
+    print(req_json)
+
+    ext = TempExtension()
+    
+    ext.extension = req_json['extension']
+    ext.password = req_json['password']
+    ext.uid = int(req_json['uid'])
+    ext.ppn = int(req_json['ppn'])
+    
+    db.session.add(ext)
+    db.session.commit()
+    
+    return "sucess", 200
+
+@app.route('/api/v1/phonebook', methods=['GET'])
+def phonebook_json():
+    query_result = db.session.execute(db.select(UserExtension).order_by(UserExtension.extension.asc())).all()
+
+    names_and_extensions = []
+
+    print(query_result)
+    for entry in query_result:
+        names_and_extensions.append({"extension": entry[0].extension, "name": entry[0].name})
+
+    return jsonify(names_and_extensions)
+
+
 def writePjsip():
 
     query_result = db.session.execute(db.select(UserExtension)).all()
@@ -247,32 +250,10 @@ def writePjsip():
     utilities.pjsipConfig(pjsip_wizard_temp_conf, tempExts, "temp_dect")
 
 
-def makeTemps():
-
-    for device in list(client.find_devices(lambda d: d.relType == mitel_ommclient2.types.PPRelTypeType("Unbound"))):
-        extension = 't_' + namegenerator.generate_name() + utilities.getRandomNumber(4)
-        password = utilities.getRandomStr(20)
-
-        newuser = client.create_user(extension)
-        client.set_user_sipauth(newuser.uid, extension, password)
-        client.set_user_name(newuser.uid, extension[2:21])
-        client.attach_user_device(int(newuser.uid), int(device.ppn))
-
-        ext = TempExtension()
-
-        ext.extension = extension
-        ext.password = password
-        ext.uid = int(newuser.uid)
-        ext.ppn = int(device.ppn)
-
-        db.session.add(ext)
-        db.session.commit()
-
 
 def trigger():
     with app.app_context():
         writePjsip()
-        makeTemps()
         os.system('asterisk -rx "pjsip reload"')
 
 
@@ -298,11 +279,11 @@ if __name__ == "__main__":
     scheduler.init_app(app)
 
     scheduler.add_job(id='trigger', func=trigger, trigger='interval', seconds=5)
-    scheduler.start()
+    #scheduler.start()
 
     with app.app_context():
         db.create_all()
 
     # run webserver/app
-    app.run(host='0.0.0.0', port=8080, debug=True, use_reloader=False)
+    app.run(host='0.0.0.0', port=8080, debug=True, use_reloader=True)
 
