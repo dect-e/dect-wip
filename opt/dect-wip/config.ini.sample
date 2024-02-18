@@ -1,6 +1,9 @@
 [flask]
 secret_key = '7355608'
 
+[event]
+name = annual ADE meeting
+
 [omm]
 ip = 10.10.10.10
 port = 12621
