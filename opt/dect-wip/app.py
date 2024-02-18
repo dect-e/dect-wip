@@ -22,6 +22,8 @@ config.read('config.ini')
 pjsip_wizard_user_conf = config['asterisk'].get('pjsip_wizard_user_conf')
 pjsip_wizard_temp_conf = config['asterisk'].get('pjsip_wizard_temp_conf')
 
+event_name = config['event'].get('name')
+
 database_name = 'database.sqlite3'
 
 app = Flask(__name__)
@@ -258,10 +260,14 @@ def trigger():
 
 
 def fetch_default_data_for_templates():
-    data = {'displayname': ''}
+    data = {
+        'current_user': current_user,
+        'event_name': event_name
+        }
+    print(data)
 
-    if current_user.is_authenticated:
-        data['displayname'] = current_user.displayname
+    #if current_user.is_authenticated:
+    #    data['displayname'] = current_user.displayname
 
     return data
 
