@@ -1,7 +1,5 @@
 #!/bin/bash
 
-#!/bin/bash
-
 APP_DIR='/opt/dect-wip/'
 cd $APP_DIR
 
