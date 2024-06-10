@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "working in $(pwd)"
+
 if [ ! -d "venv/" ]; then
   python3 -mvenv venv
   source venv/bin/activate
