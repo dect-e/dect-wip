@@ -6,7 +6,8 @@ Wants=network-online.target
 [Service]
 Restart=always
 Type=simple
-ExecStart=/opt/dect-wip/_start_app.sh
+ExecStart=/opt/dect-wip/services/dect-wip/_start_app.sh
+WorkingDirectory=/opt/dect-wip/services/dect-wip/
 Environment=
 
 [Install]

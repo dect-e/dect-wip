@@ -1,8 +1,5 @@
 #!/bin/bash
 
-APP_DIR='/opt/dect-wip-ommsync/'
-cd $APP_DIR
-
 if [ ! -d "venv/" ]; then
   python3 -mvenv venv
   source venv/bin/activate
@@ -11,4 +8,4 @@ if [ ! -d "venv/" ]; then
 fi
 
 source venv/bin/activate
-python3 dect-wip-ommsync.py
+python3 phonebook.py
