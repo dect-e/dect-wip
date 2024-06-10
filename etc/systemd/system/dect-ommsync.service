@@ -1,0 +1,13 @@
+[Unit]
+Description=DECT OMMSync
+After=network.target
+Wants=network-online.target
+
+[Service]
+Restart=always
+Type=simple
+ExecStart=/opt/dect-wip-ommsync/_start_app.sh
+Environment=
+
+[Install]
+WantedBy=multi-user.target
