@@ -4,9 +4,12 @@
 
 ### Desciption of Service
 
-WebUI and Core-API-Services
+WebUI and Core-API-Services.
+Expose to Public
 
 ### Endpoints
+
+Listen-Port: 8080
 
 `/`
 
@@ -56,6 +59,8 @@ get all extenstions and names as json
 Create Mitel-Phonebook for OMM (xsi Personal)
 
 ### Endpoints
+
+Listen-Port: 8082
 
 `/com.broadsoft.xsi-actions/v2.0/user/<caller>/directories/personal`
 
