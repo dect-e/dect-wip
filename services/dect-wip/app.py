@@ -297,5 +297,5 @@ if __name__ == "__main__":
         db.create_all()
 
     # run webserver/app
-    app.run(host='0.0.0.0', port=8080, debug=True, use_reloader=True)
+    app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=True)
 

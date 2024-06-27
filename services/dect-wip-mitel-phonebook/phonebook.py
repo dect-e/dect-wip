@@ -27,4 +27,4 @@ def return_phonebook(caller):
 
     return template(xsi_template, names_and_extensions=names_and_extensions)
 
-run(host='0.0.0.0', port=8082, debug=True)
+run(host='0.0.0.0', port=8082, debug=False)
