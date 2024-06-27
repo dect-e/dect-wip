@@ -12,6 +12,7 @@ import argon2
 import os
 import namegenerator
 import html
+import requests
 
 
 ## Read Configuration
@@ -258,6 +259,10 @@ def trigger():
         writePjsip()
         os.system('asterisk -rx "pjsip reload"')
 
+def triggerOmm():
+    response = requests.get("http://127.0.0.1:8081/trigger")
+
+
 
 def fetch_default_data_for_templates():
     data = {
@@ -285,7 +290,8 @@ if __name__ == "__main__":
     scheduler.init_app(app)
 
     scheduler.add_job(id='trigger', func=trigger, trigger='interval', seconds=5)
-    #scheduler.start()
+    scheduler.add_job(id='triggerOmm', func=triggerOmm, trigger='interval', seconds=5)
+    scheduler.start()
 
     with app.app_context():
         db.create_all()

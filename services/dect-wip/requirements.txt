@@ -8,3 +8,4 @@ argon2-cffi
 rsa
 # fix ImportError: cannot import name 'url_decode' from 'werkzeug.urls' (/opt/dect-wip/venv/lib/python3.11/site-packages/werkzeug/urls.py) - https://stackoverflow.com/questions/77215107/importerror-cannot-import-name-url-decode-from-werkzeug-urls
 Werkzeug==2.3.7
+requests
