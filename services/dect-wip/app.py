@@ -18,7 +18,7 @@ import requests
 ## Read Configuration
 
 config = configparser.ConfigParser()
-config.read('config.ini')
+config.read('/etc/dect-wip.ini')
 
 pjsip_wizard_user_conf = config['asterisk'].get('pjsip_wizard_user_conf')
 pjsip_wizard_temp_conf = config['asterisk'].get('pjsip_wizard_temp_conf')
