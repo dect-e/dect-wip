@@ -11,7 +11,7 @@ dect_wip_ip = "127.0.0.1:8080"
 print('Make sure Subscription and Auto-Create are enabled')
 
 config = configparser.ConfigParser()
-config.read('config.ini')
+config.read('/etc/dect-wip.ini')
 
 omm_ip = config['omm'].get('ip')
 omm_port = config['omm'].getint('port')
