@@ -23,7 +23,9 @@ config.read('/etc/dect-wip.ini')
 pjsip_wizard_user_conf = config['asterisk'].get('pjsip_wizard_user_conf')
 pjsip_wizard_temp_conf = config['asterisk'].get('pjsip_wizard_temp_conf')
 
-event_name = config['event'].get('name')
+event_name = config['event'].get('name', 'unnamed Event')
+token_prefix = config['event'].get('token_prefix', '01990')
+token_random_count =  int(config['event'].get('token_random_count', '8'))
 
 database_name = 'database.sqlite3'
 
@@ -32,7 +34,6 @@ from database import db # database object
 from database import UserExtension,TempExtension,User # database models
 scheduler = APScheduler()
 login_manager = LoginManager()
-
 
 
 ## LoginTools
@@ -158,7 +159,7 @@ def myextensions():
         ext.password = utilities.getRandomNumber(20)
         ext.name = html.escape(req_json['name'])
         ext.info = html.escape(req_json['info'])
-        ext.token = utilities.getRandomNumber(8)
+        ext.token = f'{token_prefix}{utilities.getRandomNumber(token_random_count)}'
         ext.user_id = current_user.id
 
         if len(ext.extension) == 4 and ext.extension.isdigit():
@@ -295,6 +296,8 @@ if __name__ == "__main__":
 
     with app.app_context():
         db.create_all()
+
+    app.add_template_filter(utilities.format_token, 'format_token')
 
     # run webserver/app
     app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=True)
