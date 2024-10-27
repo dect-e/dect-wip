@@ -15,3 +15,11 @@ def pjsipConfig(configfile: str, Extensions, context: str):
             file.write(f'[{ext.extension}]({context})\n')
             file.write(f'inbound_auth/username = {ext.extension}\n')
             file.write(f'inbound_auth/password = {ext.password}\n\n')
+
+def format_token(token):
+    """
+    Take a token(string) and create groups of four digits sperated by space
+    """
+    block_size = 4
+    token_list = ["".join(token[i:i+block_size]) for i in range(0, len(token), block_size)]
+    return " ".join(token_list)
