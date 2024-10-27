@@ -20,10 +20,10 @@
     <table class="table table-striped align-middle" id="phonebook">
         <thead>
             <tr class="table-primary">
-                <th scope="col" class="col-2">Name</th>
+                <th scope="col" class="col-1">Name</th>
                 <th scope="col" class="col-1">Rufnummer</th>
                 <th scope="col" class="col-1">DECT-Token</th>
-                <th scope="col" class="col-2">SIP-Password</th>
+                <th scope="col" class="col-1">SIP-Password</th>
                 <th scope="col" class="col-1">Info</th>
                 <th scope="col" class="col-1">Löschen</th>
 
@@ -35,7 +35,7 @@
             <tr>
                 <td>{{ext.name}}</td>
                 <td>{{ext.extension}}</td>
-                <td>{{ext.token}}</td>
+                <td>{{ext.token | format_token}}</td>
                 <td>{{ext.password}}</td>
                 <td>{{ext.info}}</td>
             <td>
