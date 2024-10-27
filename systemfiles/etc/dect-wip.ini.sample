@@ -3,6 +3,9 @@ secret_key = '7355608'
 
 [event]
 name = annual ADE meeting
+# update extension.conf if token is changed - search for String: #finde_me token
+token_prefix = 01990
+token_random_count = 8
 
 [omm]
 ip = 10.10.10.10
