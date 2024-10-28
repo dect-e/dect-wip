@@ -247,7 +247,7 @@ def writePjsip():
 
     query_result = db.session.execute(db.select(UserExtension)).all()
     userExts = [ x[0] for x in query_result ] 
-    utilities.pjsipConfig(pjsip_wizard_user_conf, userExts, "user_dect")
+    utilities.pjsipConfig(pjsip_wizard_user_conf, userExts, "user")
 
     query_result = db.session.execute(db.select(TempExtension)).all()
     tempExts = [ x[0] for x in query_result ] 
