@@ -232,11 +232,19 @@ def AddTempExtensionToDB():
 
 @app.route('/api/v1/phonebook', methods=['GET'])
 def phonebook_json():
-    query_result = db.session.execute(db.select(UserExtension).order_by(UserExtension.extension.asc())).all()
+
+    search_string = request.args.get('search')
+    
+    if search_string is not None:
+    
+        query_result = db.session.execute(db.select(UserExtension).where(UserExtension.name.icontains(search_string)).order_by(UserExtension.extension.asc())).all()
+    else:
+        query_result = db.session.execute(db.select(UserExtension).order_by(UserExtension.extension.asc())).all()
+        
+    # print(query_result)
 
     names_and_extensions = []
 
-    print(query_result)
     for entry in query_result:
         names_and_extensions.append({"extension": entry[0].extension, "name": entry[0].name})
 

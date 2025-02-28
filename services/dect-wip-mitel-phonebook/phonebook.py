@@ -21,8 +21,15 @@ def return_phonebook(caller):
     search_index = request.query.start
     search_results = request.query.results
 
-    names_and_extensions = requests.get(f"http://{dect_wip_ip}/api/v1/phonebook").json()
-    
+    search_string = search_string.replace('*','')
+
+    print(search_string)
+
+    if search_string == '':
+        names_and_extensions = requests.get(f"http://{dect_wip_ip}/api/v1/phonebook").json()
+    else:
+        names_and_extensions = requests.get(f"http://{dect_wip_ip}/api/v1/phonebook?search={search_string}").json() 
+
     print(f"{caller} hat nach {search_string} gesucht, i={search_index}, n={search_results}")
 
     return template(xsi_template, names_and_extensions=names_and_extensions)
