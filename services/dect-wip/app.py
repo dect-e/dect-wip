@@ -294,6 +294,13 @@ if __name__ == "__main__":
     # init flask
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + database_name
     app.secret_key = config['flask'].get('secret_key')
+    if not app.secret_key:
+        app.secret_key = utilities.getRandomStr(16)
+        print(app.secret_key)
+        config.set('flask','secret_key', app.secret_key)
+        with open('config.ini', 'w') as configfile:
+            config.write(configfile)
+
     login_manager.init_app(app)
     db.init_app(app)
     scheduler.init_app(app)

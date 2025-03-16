@@ -1,5 +1,6 @@
 [flask]
-secret_key = '7355608'
+# LEAVE EMPTY dect-wip generates secret key on first startup  
+secret_key = 
 
 [event]
 name = annual ADE meeting
