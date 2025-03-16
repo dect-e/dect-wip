@@ -27,7 +27,8 @@ We decided to opensource it as an easy-to-setup software after some requests.
 - don't push to main! do pull-requests
 - join our Matrix [#DECT-WIP:matrix.binary-kitchen.de](https://matrix.to/#/%23DECT-WIP%3Amatrix.binary-kitchen.de)
 
-### Our conventinal commits `structual elements` - https://www.conventionalcommits.org/
+### Our conventinal commits `structual elements`
+ see https://www.conventionalcommits.org/
 - feat
 - fix
 - build
