@@ -32,6 +32,11 @@
                     <li class="nav-item">
                         <a class="nav-link" href="/myextensions">Meine Rufnummern</a>
                     </li>
+                    {% if default_data.current_user.is_admin %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/">Admin</a>
+                    </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link" href="/logout/">Logout</a>
                     </li>

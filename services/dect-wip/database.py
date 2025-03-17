@@ -30,6 +30,7 @@ class User(db.Model):
     username = db.Column(db.String(32), nullable=False)
     displayname = db.Column(db.String(32), nullable=False)
     password = db.Column(db.String(128), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)
     is_active = True
     is_authenticated = True
 
