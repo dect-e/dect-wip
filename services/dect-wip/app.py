@@ -3,7 +3,7 @@ import pprint
 from datetime import timedelta
 
 import flask
-from flask import Flask, render_template, request, jsonify, make_response, Response, redirect
+from flask import Flask, render_template, request, jsonify, make_response, Response, redirect, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_apscheduler import APScheduler
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -141,7 +141,7 @@ def admin():
     if cu.is_admin: 
         return "<p>Hello, Admin!</p>"
     else:
-        return "Access denied",401
+        return abort(403)
 
 
 @app.route('/logout/', methods=['GET'])
