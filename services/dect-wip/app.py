@@ -3,7 +3,7 @@ import pprint
 from datetime import timedelta
 
 import flask
-from flask import Flask, render_template, request, jsonify, make_response, Response, redirect
+from flask import Flask, render_template, request, jsonify, make_response, Response, redirect, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_apscheduler import APScheduler
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -92,6 +92,7 @@ def login():
                     user.username = username
                     user.displayname = displayname
                     user.password = hasher.hash(password=password1)
+                    user.is_admin = False
 
                     db.session.add(user)
                     db.session.commit()
@@ -130,6 +131,17 @@ def login():
 
     # Fallback - used if login not successful or no login attempt
     return render_template('login.html.j2', default_data=fetch_default_data_for_templates(), error_message=error_message, info_message=info_message)
+
+ 
+@app.route('/admin/', methods=['GET'])
+@login_required
+def admin():
+    cu = db.session.execute(db.select(User).where(User.id==current_user.id)).scalar_one()
+    
+    if cu.is_admin: 
+        return "<p>Hello, Admin!</p>"
+    else:
+        return abort(403)
 
 
 @app.route('/logout/', methods=['GET'])
