@@ -40,14 +40,33 @@ login_manager = LoginManager()
 
 @login_manager.user_loader
 def load_user(user_id):
-    query_result = db.session.execute(db.select(User).filter_by(id=user_id)).all()
+    query_result = db.session.execute(db.select(User).filter_by(id=user_id)).all() 
+    # da könnte man mal scalar_one_or_none() ausprobieren, dann fällt der len == 1 quatsch raus
+
     if len(query_result) == 1:
         return query_result[0][0]
 
     return None
 
-## Routes
 
+def getUserExtensions(filterByUserId: User.id | None, searchFor: str | None, showPublicOnly: bool = True) -> list:
+
+    query = db.select(UserExtension).order_by(UserExtension.name.asc())
+    
+    if showPublicOnly:
+        query = query.filter_by(public=True)                     
+
+    if filterByUserId is not None:
+        query = query.filter_by(user_id=filterByUserId)
+
+    if searchFor is not None:
+        query = query.filter(UserExtension.name.icontains(searchFor))
+
+    return db.session.execute(query).scalars().all()
+
+
+
+## Routes
 
 @app.route('/')
 def default(): 
@@ -152,9 +171,8 @@ def logout():
 
 @app.route('/phonebook/')
 def phonebook():
-    query_result = db.session.execute(db.select(UserExtension).order_by(UserExtension.extension.asc())).all()
 
-    exts = [x[0] for x in query_result]
+    exts = getUserExtensions(filterByUserId=None,searchFor=None,showPublicOnly=True)
 
     return render_template('phonebook.html.j2', default_data=fetch_default_data_for_templates(), exts=exts)
 
@@ -171,6 +189,7 @@ def myextensions():
         ext.password = utilities.getRandomNumber(20)
         ext.name = html.escape(req_json['name'])
         ext.info = html.escape(req_json['info'])
+        ext.public = bool(req_json['public'])
         ext.token = f'{token_prefix}{utilities.getRandomNumber(token_random_count)}'
         ext.user_id = current_user.id
 
@@ -202,9 +221,7 @@ def myextensions():
         return response
 
     if request.method == 'GET':
-        query_result = db.session.execute(db.select(UserExtension).filter_by(user_id=current_user.id)).all()
-
-        exts = [ x[0] for x in query_result ] 
+        exts = getUserExtensions(filterByUserId=current_user.id,searchFor=None,showPublicOnly=False)
 
         return render_template('myextensions.html.j2', default_data=fetch_default_data_for_templates(), exts=exts)
 
@@ -247,18 +264,9 @@ def phonebook_json():
 
     search_string = request.args.get('search')
     
-    if search_string is not None:
-    
-        query_result = db.session.execute(db.select(UserExtension).where(UserExtension.name.icontains(search_string)).order_by(UserExtension.extension.asc())).all()
-    else:
-        query_result = db.session.execute(db.select(UserExtension).order_by(UserExtension.extension.asc())).all()
-        
-    # print(query_result)
+    query_result = getUserExtensions(filterByUserId=None,searchFor=search_string,showPublicOnly=True)
 
-    names_and_extensions = []
-
-    for entry in query_result:
-        names_and_extensions.append({"extension": entry[0].extension, "name": entry[0].name})
+    names_and_extensions = [{"extension": entry.extension, "name": entry.name} for entry in query_result]
 
     return jsonify(names_and_extensions)
 
