@@ -72,12 +72,21 @@
             <label for="info" class="input-group-text"><i class="bi bi-info-circle"></i></label>
             <input type="text" name="info" class="form-control" id="info" placeholder="Info">
         </div>
+        <div class="input-group mt-2">
+            <label for="public" class="input-group-text"><i class="bi bi-eye"></i></label>
+            <span class="input-group-text form-control">Show this extension in the public phonebook</span>
+            <div class="input-group-text">
+                <input class="form-check-input mt-0" name="pulic" id="public" type="checkbox" checked>
+            </div>
+
+        </div>
         <div class="mt-2">
             <button type="submit" class="btn btn-success" onclick="addEntry()">
                 <i class="bi bi-caret-right-fill me-2"></i>Nummer anlegen</button>
         </div>
     </div>
 </div>
+
 
 <!-- Delete Entry JS -->
 
@@ -109,11 +118,13 @@
         var extension = document.getElementById("extension");
         var name = document.getElementById("name");
         var info = document.getElementById("info");
+        var public = document.getElementById("public");
 
         var entry = {
             extension: extension.value,
             name: name.value,
-            info: info.value
+            info: info.value,
+            public: public.checked
         };
 
         fetch(`${window.origin}/myextensions/`, {

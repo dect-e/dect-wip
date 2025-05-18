@@ -11,6 +11,7 @@ class UserExtension(db.Model):
     name: str = db.Column(db.String(20))
     info: str = db.Column(db.String(20))
     token: str = db.Column(db.String(20))
+    public: bool = db.Column(db.Boolean, default=False, nullable=False)
 
     # Add a foreign key to reference the User model's primary key (id)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
