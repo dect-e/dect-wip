@@ -62,7 +62,7 @@
     <div class="row align-items-start">
         <div class="input-group">
             <label for="extension" class="input-group-text"><i class="bi bi-telephone"></i></label>
-            <input type="tel" name="extension" class="form-control" id="extension" placeholder="Rufnummer 4-Digits">
+            <input type="tel" name="extension" class="form-control" id="extension" placeholder="Rufnummer 4-Digits" onkeyup=convert()>
         </div>
         <div class="input-group mt-2">
             <label for="name" class="input-group-text"><i class="bi bi-person"></i></label>
@@ -139,8 +139,25 @@
         .then(() => {
             window.location.reload();
         })
-        
     }
+
+
+  function vanityConvert(extension){
+    extension = extension.replaceAll(/[abc]/gi,"2");
+    extension = extension.replaceAll(/[def]/gi,"3");
+    extension = extension.replaceAll(/[ghi]/gi,"4");
+    extension = extension.replaceAll(/[jkl]/gi,"5");
+    extension = extension.replaceAll(/[mno]/gi,"6");
+    extension = extension.replaceAll(/[pqrs]/gi,"7");
+    extension = extension.replaceAll(/[tuv]/gi,"8");
+    extension = extension.replaceAll(/[wxyz]/gi,"9");
+    return extension;
+  }
+
+  function convert(){
+    document.getElementById("extension").value = vanityConvert(document.getElementById("extension").value);
+  }
+
 </script>
 
 
