@@ -4,7 +4,7 @@ from flask import Flask, request, jsonify, make_response
 import requests
 import namegenerator
 import utilities
-
+from threading import Lock
 
 dect_wip_ip = "127.0.0.1:8080"
 
@@ -18,6 +18,7 @@ omm_port = config['omm'].getint('port')
 omm_username = config['omm'].get('username')
 omm_password = config['omm'].get('password')
 
+lock = Lock()
 client = mitel_ommclient2.OMMClient2(host=omm_ip, port=omm_port, username=omm_username, password=omm_password, ommsync=True)
 
 app = Flask(__name__)
@@ -25,32 +26,37 @@ app = Flask(__name__)
 @app.route('/connect/', methods=['POST'])
 def connect():
 
-    req_json = request.get_json()
+    print('obtaining lock')
+    with lock:
+        print('lock obtained')
 
-    user_extension = requests.get(f"http://{dect_wip_ip}/api/v1/GetUserExtensionByToken/{req_json['token']}").json()
+        req_json = request.get_json()
 
-    extension = user_extension['extension']
-    password = user_extension['password']
-    displayname = user_extension['name']
+        user_extension = requests.get(f"http://{dect_wip_ip}/api/v1/GetUserExtensionByToken/{req_json['token']}").json()
 
-    temp_extenison = requests.get(f"http://{dect_wip_ip}/api/v1/GetTempExtensionByCallerid/{req_json['callerid']}").json()
-
-    ppn = temp_extenison['ppn']
-    uid = temp_extenison['uid']
-
-    print(ppn)
-    print(uid)
-
-    client.detach_user_device(uid,ppn)
-
-    newuser = client.create_user(extension)
-    client.set_user_sipauth(newuser.uid, extension, password)
-    client.set_user_name(newuser.uid, displayname)
+        extension = user_extension['extension']
+        password = user_extension['password']
+        displayname = user_extension['name']
     
-    print(client.attach_user_device(int(newuser.uid), ppn))
-    #client.delete_user(uid)
-
-    response = make_response(jsonify( {"message": "extension added"}), 200)
+        temp_extenison = requests.get(f"http://{dect_wip_ip}/api/v1/GetTempExtensionByCallerid/{req_json['callerid']}").json()
+    
+        ppn = temp_extenison['ppn']
+        uid = temp_extenison['uid']
+    
+        print(ppn)
+        print(uid)
+    
+        client.detach_user_device(uid,ppn)
+    
+        newuser = client.create_user(extension)
+        client.set_user_sipauth(newuser.uid, extension, password)
+        client.set_user_name(newuser.uid, displayname)
+        
+        print(client.attach_user_device(int(newuser.uid), ppn))
+        # no implemented in current ommclient ...
+        #client.delete_user(uid)
+    
+        response = make_response(jsonify( {"message": "extension added"}), 200)
     return response
 
 
@@ -58,27 +64,30 @@ def connect():
 def makeTemps():
     print("lets go")
 
-    for device in list(client.find_devices(lambda d: d.relType == mitel_ommclient2.types.PPRelTypeType("Unbound"))):
-        extension = 't_' + namegenerator.generate_name() + utilities.getRandomNumber(4)
-        password = utilities.getRandomStr(20)
-
-        newuser = client.create_user(extension)
-        client.set_user_sipauth(newuser.uid, extension, password)
-        client.set_user_name(newuser.uid, extension[2:21])
-        client.attach_user_device(int(newuser.uid), int(device.ppn))
-
-        data = {
-            "extension": extension,
-            "password": password,
-            "uid": newuser.uid,
-            "ppn": device.ppn
-        }
-
-        print(data)
-
-        response = requests.post(f"http://{dect_wip_ip}/api/v1/AddTempExtensionToDB", json=data)
-        print(response.text)
-
+    print('obtaining lock')
+    with lock:
+        print('lock obtained')
+    
+        for device in list(client.find_devices(lambda d: d.relType == mitel_ommclient2.types.PPRelTypeType("Unbound"))):
+            extension = 't_' + namegenerator.generate_name() + utilities.getRandomNumber(4)
+            password = utilities.getRandomStr(20)
+    
+            newuser = client.create_user(extension)
+            client.set_user_sipauth(newuser.uid, extension, password)
+            client.set_user_name(newuser.uid, extension[2:21])
+            client.attach_user_device(int(newuser.uid), int(device.ppn))
+    
+            data = {
+                "extension": extension,
+                "password": password,
+                "uid": newuser.uid,
+                "ppn": device.ppn
+            }
+    
+            print(data)
+    
+            response = requests.post(f"http://{dect_wip_ip}/api/v1/AddTempExtensionToDB", json=data)
+            print(response.text)
     return "success", 200
 
 
