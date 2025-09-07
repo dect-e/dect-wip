@@ -81,18 +81,21 @@ def login():
 
     # POST - Register or Login?
     if request.method == 'POST':
-        # REGISTER
-        if request.form.get('action') == 'register':
 
-            username = str(request.form.get('username'))
-            password1 = str(request.form.get('password1'))
-            password2 = str(request.form.get('password2'))
+        username = str(request.form.get('username'))
+        password = str(request.form.get('password'))
+        password_repeat = str(request.form.get('password_repeat'))
+        action = request.form.get('action')
+
+
+        # REGISTER
+        if action == 'register':
 
             if username == '' or username is None:
                 error_message = 'empty Username is not allowed'
-            elif password1 == '' or password1 is None:
+            elif password == '' or password is None:
                 error_message = 'empty Password is not allowed'
-            elif password1 != password2:
+            elif password != password_repeat:
                 error_message = 'Passwords don\'t match'
             else:
                 # continue with register
@@ -110,7 +113,7 @@ def login():
                     user = User()
                     user.username = username
                     user.displayname = displayname
-                    user.password = hasher.hash(password=password1)
+                    user.password = hasher.hash(password=password)
                     user.is_admin = False
 
                     db.session.add(user)
@@ -120,10 +123,9 @@ def login():
 
 
         # LOGIN
-        elif request.form.get('action') == 'login':
+        elif action == 'login':
 
-            username = str(request.form.get('username')).lower()
-            password = str(request.form.get('password'))
+            username = username.lower()
 
             if username == '' or username is None:
                 error_message = 'empty Username is not allowed'
