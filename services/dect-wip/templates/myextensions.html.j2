@@ -8,6 +8,20 @@
     <p class="h3">Meine Rufnummern</p>
 </div>
 
+
+<!-- tmp -->
+<div class="container-xl mt-3 mb-3">
+  <div class="alert alert-info" role="alert">
+    Experimenteller SIP-Zugang<br>
+    Username: $Rufnummer<br>
+    Passwort: $SIP-Passwort<br>
+    Realm/Domain: sip.dect.site<br>
+    Port: 5060<br>
+    Transport: udp<br>
+  </div>
+</div>
+
+
 <!-- Übersicht -->
 
 <div class="container-xl mt-3 mb-3">
@@ -23,7 +37,7 @@
                 <th scope="col" class="col-1">Name</th>
                 <th scope="col" class="col-1">Rufnummer</th>
                 <th scope="col" class="col-1">DECT-Token</th>
-                <th scope="col" class="col-1">SIP-Password</th>
+                <th scope="col" class="col-1">SIP-Passwort</th>
                 <th scope="col" class="col-1">Info</th>
                 <th scope="col" class="col-1">Löschen</th>
 
@@ -55,9 +69,6 @@
 <div class="container-xl mt-3 mb-3">
     <p class="h5">Neue Rufnummer anlegen</p>
 </div>
-
-<!-- Neue Rufnummer -->
-
 <div class="container-xl">
     <div class="row align-items-start">
         <div class="input-group">
@@ -87,6 +98,25 @@
     </div>
 </div>
 
+<!-- Voucher einlösen -->
+
+<div class="container-xl mt-3 mb-3">
+    <p class="h5">Voucher einlösen</p>
+</div>
+<div class="container-xl">
+    <div class="row align-items-start">
+        <div class="input-group">
+            <label for="extension" class="input-group-text"><i class="bi bi-braces"></i></label>
+            <input type="text" name="voucher" class="form-control" id="voucher" placeholder="Voucher">
+        </div>
+
+        </div>
+        <div class="mt-2">
+            <button type="submit" class="btn btn-success" onclick="useVoucher()">
+            <i class="bi bi-caret-right-fill me-2"></i>Voucher einlösen</button>
+        </div>
+    </div>
+</div>
 
 <!-- Delete Entry JS -->
 
@@ -136,11 +166,44 @@
                 "content-type": "application/json"
             })
         })
-        .then(() => {
-            window.location.reload();
+        .then((e) => {
+            if (e.status == 200) {
+                window.location.reload();
+            } else {
+                e.text().then((text) => {
+                    alert("extension can't be added: " + text);
+                });
+            }
         })
     }
 
+
+    async function useVoucher() {
+        var voucher = document.getElementById("voucher");
+
+        var entry = {
+            voucher: voucher.value
+        };
+
+        fetch(`${window.origin}/api/v1/ClaimExtensionByVoucher/`, {
+            method: "POST",
+            credentials: "include",
+            body: JSON.stringify(entry),
+            cache: "no-cache",
+            headers: new Headers({
+                "content-type": "application/json"
+            })
+        })
+        .then((e) => {
+            if (e.status == 200) {
+                window.location.reload();
+            } else {
+                e.text().then((text) => {
+                    alert("voucher not accepted: " + text);
+                });
+            }
+        })
+    }
 
   function vanityConvert(extension){
     extension = extension.replaceAll(/[abc]/gi,"2");

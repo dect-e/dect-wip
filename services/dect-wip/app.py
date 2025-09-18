@@ -1,46 +1,36 @@
 import configparser
 import pprint
-from datetime import timedelta
-
-import flask
-from flask import Flask, render_template, request, jsonify, make_response, Response, redirect, abort
-from flask_sqlalchemy import SQLAlchemy
-from flask_apscheduler import APScheduler
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import utilities
 import argon2
 import os
-import namegenerator
 import html
+from datetime import timedelta
+from flask import Flask, render_template, request, jsonify, make_response, Response, redirect, abort
+from flask_apscheduler import APScheduler
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
+import click
 import requests
 
-
-## Read Configuration
-
-config = configparser.ConfigParser()
-config.read('/etc/dect-wip.ini')
-
-pjsip_wizard_user_conf = config['asterisk'].get('pjsip_wizard_user_conf')
-pjsip_wizard_temp_conf = config['asterisk'].get('pjsip_wizard_temp_conf')
-
-event_name = config['event'].get('name', 'unnamed Event')
-token_prefix = config['event'].get('token_prefix', '01990')
-token_random_count =  int(config['event'].get('token_random_count', '8'))
-
-database_name = 'database.sqlite3'
-
-app = Flask(__name__)
 from database import db # database object
 from database import UserExtension,TempExtension,User # database models
 scheduler = APScheduler()
 login_manager = LoginManager()
 
 
+app = Flask(__name__)
+
+# config
+
+application_config = {}
+
 ## LoginTools
 
 @login_manager.user_loader
 def load_user(user_id):
-    query_result = db.session.execute(db.select(User).filter_by(id=user_id)).all() 
+    """
+    provide information about the user in flask
+    """
+    query_result = db.session.execute(db.select(User).filter_by(id=user_id)).all()
     # da könnte man mal scalar_one_or_none() ausprobieren, dann fällt der len == 1 quatsch raus
 
     if len(query_result) == 1:
@@ -193,11 +183,15 @@ def myextensions():
         ext.token = f'{token_prefix}{utilities.getRandomNumber(token_random_count)}'
         ext.user_id = current_user.id
 
-        if len(ext.extension) == 4 and ext.extension.isdigit():
-            db.session.add(ext)
-            db.session.commit()
+        if len(ext.extension) == 4 and ext.extension.isdigit() and int(ext.extension[:1]) > 0:
+            try:
+                db.session.add(ext)
+                db.session.commit()
 
-            response = make_response(jsonify( {"message": "extension added"}), 200)
+                response = make_response(jsonify( {"message": "extension added"}), 200)
+            except:
+                response = make_response(jsonify( {"message": "extension can't be added. Do you need a voucher?"}), 400)
+
 
         else:
             response = make_response(jsonify( {"message": "you need 4 digits"}), 400)
@@ -228,6 +222,7 @@ def myextensions():
 
 ## API V1
 
+# TODO: change <token> to POST Parameter
 @app.route('/api/v1/GetUserExtensionByToken/<token>', methods=['GET'])
 def GetUserExtensionByToken(token):
     selection = db.select(UserExtension).filter_by(token = token)
@@ -257,7 +252,7 @@ def AddTempExtensionToDB():
     db.session.add(ext)
     db.session.commit()
     
-    return "sucess", 200
+    return "success", 200
 
 @app.route('/api/v1/phonebook', methods=['GET'])
 def phonebook_json():
@@ -269,6 +264,29 @@ def phonebook_json():
     names_and_extensions = [{"extension": entry.extension, "name": entry.name} for entry in query_result]
 
     return jsonify(names_and_extensions)
+
+@app.route('/api/v1/ClaimExtensionByVoucher/', methods=['POST'])
+@login_required
+def ClaimExtensionByVoucher():
+
+    req_json = request.get_json()
+    print(req_json)
+
+    if "voucher" not in req_json:
+        return "Field 'voucher' not found", 400
+
+    if not len(req_json['voucher']) > 0:
+        return "Field 'voucher' is empty", 400
+
+    voucher = req_json["voucher"].replace(' ', '') #TODO: imporve space handling
+    db.session.execute(
+        db.update(UserExtension).filter_by(voucher = voucher).values(user_id=current_user.id)
+    )
+    db.session.commit()
+
+    #TODO: add number of extensions added
+    
+    return "success", 200
 
 
 def writePjsip():
@@ -290,6 +308,7 @@ def trigger():
 
 def triggerOmm():
     response = requests.get("http://127.0.0.1:8081/trigger")
+    return #TODO: remove
 
 
 
@@ -306,34 +325,55 @@ def fetch_default_data_for_templates():
     return data
 
 
-if __name__ == "__main__":
-    # database stuff
-    #import caribou
-    #caribou.upgrade('instance/' + database_name, 'migrations/')
+@click.command()
+@click.option('--config', 'config_path', envvar='CONFIG', default='/etc/dect-wip.ini', help='optional config location')
+def init(config_path):
+
+    # setup global config
+
+    global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count
+
+    print(f'Using config: {config_path}')
+
+    config = configparser.ConfigParser()
+    config.read(config_path)
+
+    pjsip_wizard_user_conf = config['asterisk'].get('pjsip_wizard_user_conf')
+    pjsip_wizard_temp_conf = config['asterisk'].get('pjsip_wizard_temp_conf')
+
+    event_name = config['event'].get('name', 'unnamed Event')
+    token_prefix = config['event'].get('token_prefix', '01990')
+    token_random_count = int(config['event'].get('token_random_count', '8'))
 
     # init flask
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + database_name
     app.secret_key = config['flask'].get('secret_key')
+
+    # autogenerate secret_key if not provided
     if not app.secret_key:
         app.secret_key = utilities.getRandomStr(16)
-        print(app.secret_key)
-        config.set('flask','secret_key', app.secret_key)
-        with open('config.ini', 'w') as configfile:
+        print(f'generated secret_key: {app.secret_key}')
+        config.set('flask', 'secret_key', app.secret_key)
+        with open(config_path, 'w') as configfile:
             config.write(configfile)
 
-    login_manager.init_app(app)
+    # database
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
     db.init_app(app)
-    scheduler.init_app(app)
+    with app.app_context():
+        db.create_all()
 
+    login_manager.init_app(app)
+
+    scheduler.init_app(app)
     scheduler.add_job(id='trigger', func=trigger, trigger='interval', seconds=5)
     scheduler.add_job(id='triggerOmm', func=triggerOmm, trigger='interval', seconds=5)
     scheduler.start()
-
-    with app.app_context():
-        db.create_all()
 
     app.add_template_filter(utilities.format_token, 'format_token')
 
     # run webserver/app
     app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=True)
 
+
+if __name__ == "__main__":
+    init()
