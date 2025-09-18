@@ -98,11 +98,14 @@
     </div>
 </div>
 
+
+{% if default_data.show_voucher == 'True' %}
 <!-- Voucher einlösen -->
 
 <div class="container-xl mt-3 mb-3">
     <p class="h5">Voucher einlösen</p>
 </div>
+
 <div class="container-xl">
     <div class="row align-items-start">
         <div class="input-group">
@@ -117,6 +120,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <!-- Delete Entry JS -->
 

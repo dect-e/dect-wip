@@ -315,7 +315,8 @@ def triggerOmm():
 def fetch_default_data_for_templates():
     data = {
         'current_user': current_user,
-        'event_name': event_name
+        'event_name': event_name,
+        'show_voucher': show_voucher
         }
     print(data)
 
@@ -331,7 +332,7 @@ def init(config_path):
 
     # setup global config
 
-    global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count
+    global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count, show_voucher
 
     print(f'Using config: {config_path}')
 
@@ -344,6 +345,7 @@ def init(config_path):
     event_name = config['event'].get('name', 'unnamed Event')
     token_prefix = config['event'].get('token_prefix', '01990')
     token_random_count = int(config['event'].get('token_random_count', '8'))
+    show_voucher = config['event'].get('show_voucher', 'True')
 
     # init flask
     app.secret_key = config['flask'].get('secret_key')
