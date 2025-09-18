@@ -18,3 +18,9 @@ password = ade
 [asterisk]
 pjsip_wizard_user_conf = /etc/asterisk/pjsip_wizard_user.conf
 pjsip_wizard_temp_conf = /etc/asterisk/pjsip_wizard_temp.conf
+
+# configured in /etc/asterisk/manager.conf
+ami_host = 127.0.0.1
+ami_port = 5038
+ami_user = dect-wip
+ami_password = changeME

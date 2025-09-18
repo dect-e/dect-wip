@@ -303,8 +303,21 @@ def writePjsip():
 
 def trigger():
     with app.app_context():
+        #os.system('asterisk -rx "pjsip reload"')
         writePjsip()
-        os.system('asterisk -rx "pjsip reload"')
+        
+        from asterisk.ami import AMIClient, SimpleAction
+
+        client = AMIClient(address=dectwip_config['asterisk']['ami']['host'],port=dectwip_config['asterisk']['ami']['port'])
+        client.login(username=dectwip_config['asterisk']['ami']['user'],secret=dectwip_config['asterisk']['ami']['password'])
+
+        action = SimpleAction(
+            'Command',
+            Command = 'pjsip reload'
+        )
+        client.send_action(action)
+        # TODO: verifiy that command was successful
+        client.logoff()
 
 def triggerOmm():
     response = requests.get("http://127.0.0.1:8081/trigger")
@@ -332,7 +345,7 @@ def init(config_path):
 
     # setup global config
 
-    global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count, show_voucher
+    global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count, show_voucher, dectwip_config
 
     print(f'Using config: {config_path}')
 
@@ -341,6 +354,17 @@ def init(config_path):
 
     pjsip_wizard_user_conf = config['asterisk'].get('pjsip_wizard_user_conf')
     pjsip_wizard_temp_conf = config['asterisk'].get('pjsip_wizard_temp_conf')
+    dectwip_config = {
+        'asterisk': {
+            'ami': {
+                'host': config['asterisk'].get('ami_host'),
+                'port': int(config['asterisk'].get('ami_port')),
+                'user': config['asterisk'].get('ami_user'),
+                'password': config['asterisk'].get('ami_password')
+                
+            }
+        }
+    }
 
     event_name = config['event'].get('name', 'unnamed Event')
     token_prefix = config['event'].get('token_prefix', '01990')
