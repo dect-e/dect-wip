@@ -10,6 +10,7 @@ from flask_apscheduler import APScheduler
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 import click
 import requests
+from flasgger import Swagger
 
 from database import db # database object
 from database import UserExtension,TempExtension,User # database models
@@ -223,20 +224,95 @@ def myextensions():
 ## API V1
 
 # TODO: change <token> to POST Parameter
+# TODO: fix 500 server error if no extensions is found
 @app.route('/api/v1/GetUserExtensionByToken/<token>', methods=['GET'])
 def GetUserExtensionByToken(token):
+    """
+    Get user extension by token
+    ---
+    parameters:
+      - name: token
+        in: path
+        type: string
+        required: true
+    responses:
+      200:
+        schema:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+              description: user name
+            extension:
+              type: string
+            token:
+              type: string
+    """
     selection = db.select(UserExtension).filter_by(token = token)
     ext = db.session.execute(selection).first()
     return jsonify(ext[0])
 
 @app.route('/api/v1/GetTempExtensionByCallerid/<callerid>', methods=['GET'])
 def GetTempExtensionByCallerid(callerid):
+    """
+    Get temporary extension by caller ID
+    ---
+    parameters:
+      - name: callerid
+        in: path
+        type: string
+        required: true
+    responses:
+      200:
+        schema:
+          type: object
+          properties:
+            id:
+              type: integer
+            extension:
+              type: string
+            name:
+              type: string
+    """
+
     selection = db.select(TempExtension).filter_by(extension = callerid)
     temp_ext = db.session.execute(selection).first()
     return jsonify(temp_ext[0])
 
 @app.route('/api/v1/AddTempExtensionToDB', methods=['POST'])
 def AddTempExtensionToDB():
+    """
+    Add temporary extension to the database
+    ---
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - extension
+            - password
+            - uid
+            - ppn
+          properties:
+            extension:
+              type: string
+            password:
+              type: string
+            uid:
+              type: integer
+            ppn:
+              type: integer
+    responses:
+      200:
+        description: Extension successfully added
+    """
+
 
     req_json = request.get_json()
     
@@ -254,8 +330,30 @@ def AddTempExtensionToDB():
     
     return "success", 200
 
+# TODO: fix broaken searchstring
 @app.route('/api/v1/phonebook', methods=['GET'])
 def phonebook_json():
+    """
+    Get phonebook entries
+    ---
+    parameters:
+      - name: search
+        in: query
+        type: string
+        required: false
+    responses:
+      200:
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              extension:
+                type: string
+              name:
+                type: string
+    """
+
 
     search_string = request.args.get('search')
     
@@ -268,6 +366,29 @@ def phonebook_json():
 @app.route('/api/v1/ClaimExtensionByVoucher/', methods=['POST'])
 @login_required
 def ClaimExtensionByVoucher():
+    """
+    Claim an extension using a voucher code
+    ---
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - voucher
+          properties:
+            voucher:
+              type: string
+    responses:
+      200:
+        description: Extension successfully claimed
+      400:
+        description: Missing or empty voucher field
+    """
+
 
     req_json = request.get_json()
     print(req_json)
@@ -363,6 +484,11 @@ def init(config_path):
                 'password': config['asterisk'].get('ami_password')
                 
             }
+        },
+        'flask': { 
+            'swagger': {
+                'enabled': config['flask'].get('swagger_enabled', 'False')
+            }
         }
     }
 
@@ -396,6 +522,11 @@ def init(config_path):
     scheduler.start()
 
     app.add_template_filter(utilities.format_token, 'format_token')
+
+    # run swagger
+    if dectwip_config['flask']['swagger']['enabled'] == 'True':
+        print('enabling Swagger - /apidocs/')
+        swagger = Swagger(app)
 
     # run webserver/app
     app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=True)
