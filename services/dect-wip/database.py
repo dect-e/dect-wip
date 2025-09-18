@@ -12,11 +12,12 @@ class UserExtension(db.Model):
     info: str = db.Column(db.String(20))
     token: str = db.Column(db.String(20))
     public: bool = db.Column(db.Boolean, default=False, nullable=False)
+    voucher: str = db.Column(db.String(32))
 
-    # Add a foreign key to reference the User model's primary key (id)
+    # Foreign key linking to the User model's primary key (id)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
-    # Create a relationship with the User model
+    # ORM relationship to access the parent User object from a UserExtension instance
     user = db.relationship('User', backref='extensions', lazy=True)
 
 @dataclass

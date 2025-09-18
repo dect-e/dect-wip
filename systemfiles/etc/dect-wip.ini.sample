@@ -1,12 +1,14 @@
 [flask]
 # LEAVE EMPTY dect-wip generates secret key on first startup  
 secret_key = 
+swagger_enabled = False
 
 [event]
 name = annual ADE meeting
 # update extension.conf if token is changed - search for String: #finde_me token
 token_prefix = 01990
 token_random_count = 8
+show_voucher = False
 
 [omm]
 ip = 10.10.10.10
@@ -17,3 +19,9 @@ password = ade
 [asterisk]
 pjsip_wizard_user_conf = /etc/asterisk/pjsip_wizard_user.conf
 pjsip_wizard_temp_conf = /etc/asterisk/pjsip_wizard_temp.conf
+
+# configured in /etc/asterisk/manager.conf
+ami_host = 127.0.0.1
+ami_port = 5038
+ami_user = dect-wip
+ami_password = changeME
