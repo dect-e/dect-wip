@@ -17,8 +17,11 @@ from database import UserExtension,TempExtension,User # database models
 scheduler = APScheduler()
 login_manager = LoginManager()
 
-
-app = Flask(__name__)
+instance_path = os.getenv('INSTANCE_PATH')
+if(instance_path):
+    app = Flask(__name__, instance_path="/tmp/")
+else:
+    app = Flask(__name__)
 
 # config
 
@@ -459,9 +462,6 @@ def fetch_default_data_for_templates():
 
     return data
 
-
-@click.command()
-@click.option('--config', 'config_path', envvar='CONFIG', default='/etc/dect-wip.ini', help='optional config location')
 def init(config_path):
 
     # setup global config
@@ -528,9 +528,17 @@ def init(config_path):
         print('enabling Swagger - /apidocs/')
         swagger = Swagger(app)
 
+@click.command()
+@click.option('--config', 'config_path', envvar='CONFIG', default='/etc/dect-wip.ini', help='optional config location')
+def init_dev(config_path):
+    init(config_path)
     # run webserver/app
     app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=True)
 
+def init_wsgi():
+    config_path = os.getenv('CONFIG', '/etc/dect-wip.ini')
+    init(config_path)
+    return app
 
 if __name__ == "__main__":
-    init()
+    init_dev()
