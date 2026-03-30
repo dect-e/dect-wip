@@ -96,7 +96,16 @@ def init(config_path):
     omm_username = config['omm'].get('username')
     omm_password = config['omm'].get('password')
 
-    client = mitel_ommclient2.OMMClient2(host=omm_ip, port=omm_port, username=omm_username, password=omm_password, ommsync=True)
+    try:
+        client = mitel_ommclient2.OMMClient2(
+            host=omm_ip,
+            port=omm_port,
+            username=omm_username,
+            password=omm_password,
+            ommsync=True
+        )
+    except (TimeoutError) as e:
+        raise RuntimeError("Connection to OMM timed out") from e
 
     dect_wip_ip = os.getenv('DECT_WIP_IP', '127.0.0.1:8080')
 
