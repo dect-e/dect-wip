@@ -444,7 +444,7 @@ def trigger():
         client.logoff()
 
 def triggerOmm():
-    response = requests.get("http://127.0.0.1:8081/trigger")
+    response = requests.get(f"http://{ommsync_url}/trigger")
     return #TODO: remove
 
 
@@ -466,7 +466,7 @@ def init(config_path):
 
     # setup global config
 
-    global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count, show_voucher, dectwip_config
+    global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count, show_voucher, dectwip_config, ommsync_url
 
     print(f'Using config: {config_path}')
 
@@ -475,13 +475,16 @@ def init(config_path):
 
     pjsip_wizard_user_conf = config['asterisk'].get('pjsip_wizard_user_conf')
     pjsip_wizard_temp_conf = config['asterisk'].get('pjsip_wizard_temp_conf')
+    ami_pw = (
+    open(os.getenv('AMI_PW_PATH')).read().strip() if os.getenv('AMI_PW_PATH') else config['asterisk'].get('ami_password')
+    )
     dectwip_config = {
         'asterisk': {
             'ami': {
                 'host': config['asterisk'].get('ami_host'),
                 'port': int(config['asterisk'].get('ami_port')),
                 'user': config['asterisk'].get('ami_user'),
-                'password': config['asterisk'].get('ami_password')
+                'password': ami_pw
                 
             }
         },
@@ -498,7 +501,12 @@ def init(config_path):
     show_voucher = config['event'].get('show_voucher', 'True')
 
     # init flask
-    app.secret_key = config['flask'].get('secret_key')
+    app.secret_key = (
+    open(os.getenv('FLASK_SECRET_KEY_PATH')).read().strip() 
+    if os.getenv('FLASK_SECRET_KEY_PATH') else config['flask'].get('secret_key')
+    )
+
+    ommsync_url = os.getenv('OMMSYNC_URL', '127.0.0.1:8081')
 
     # autogenerate secret_key if not provided
     if not app.secret_key:

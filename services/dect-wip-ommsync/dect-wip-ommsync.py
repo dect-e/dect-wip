@@ -94,7 +94,10 @@ def init(config_path):
     omm_ip = config['omm'].get('ip')
     omm_port = config['omm'].getint('port')
     omm_username = config['omm'].get('username')
-    omm_password = config['omm'].get('password')
+    omm_password = (
+    open(os.getenv('OMM_PW_PATH')).read().strip() 
+    if os.getenv('OMM_PW_PATH') else config['omm'].get('password')
+    )
 
     try:
         client = mitel_ommclient2.OMMClient2(
