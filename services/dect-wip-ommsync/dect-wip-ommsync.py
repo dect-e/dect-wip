@@ -5,22 +5,12 @@ import requests
 import namegenerator
 import utilities
 from threading import Lock
-
-dect_wip_ip = "127.0.0.1:8080"
+import click
+import os
 
 print('Make sure Subscription and Auto-Create are enabled')
 
-config = configparser.ConfigParser()
-config.read('/etc/dect-wip.ini')
-
-omm_ip = config['omm'].get('ip')
-omm_port = config['omm'].getint('port')
-omm_username = config['omm'].get('username')
-omm_password = config['omm'].get('password')
-
 lock = Lock()
-client = mitel_ommclient2.OMMClient2(host=omm_ip, port=omm_port, username=omm_username, password=omm_password, ommsync=True)
-
 app = Flask(__name__)
 
 @app.route('/connect/', methods=['POST'])
@@ -90,9 +80,38 @@ def makeTemps():
             print(response.text)
     return "success", 200
 
+def init(config_path):
 
-if __name__ == "__main__":
-    #app.secret_key = config['flask'].get('secret_key')
+    # setup global config
 
+    global config, dect_wip_ip, omm_ip, omm_port, omm_username, omm_password, client 
+
+    print(f'Using config: {config_path}')
+
+    config = configparser.ConfigParser()
+    config.read(config_path)
+
+    omm_ip = config['omm'].get('ip')
+    omm_port = config['omm'].getint('port')
+    omm_username = config['omm'].get('username')
+    omm_password = config['omm'].get('password')
+
+    client = mitel_ommclient2.OMMClient2(host=omm_ip, port=omm_port, username=omm_username, password=omm_password, ommsync=True)
+
+    dect_wip_ip = os.getenv('DECT_WIP_IP', '127.0.0.1:8080')
+
+
+@click.command()
+@click.option('--config', 'config_path', envvar='CONFIG', default='/etc/dect-wip.ini', help='optional config location')
+def init_dev(config_path):
+    init(config_path)
     # run webserver/app
     app.run(host='0.0.0.0', port=8081, debug=False, use_reloader=True)
+
+def init_wsgi():
+    config_path = os.getenv('CONFIG', '/etc/dect-wip.ini')
+    init(config_path)
+    return app
+
+if __name__ == "__main__":
+    init_dev()
