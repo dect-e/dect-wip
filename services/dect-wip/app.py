@@ -77,9 +77,9 @@ def login():
     # POST - Register or Login?
     if request.method == 'POST':
 
-        username = str(request.form.get('username'))
-        password = str(request.form.get('password'))
-        password_repeat = str(request.form.get('password_repeat'))
+        username = request.form.get('username')
+        password = request.form.get('password')
+        password_repeat = request.form.get('password_repeat')
         action = request.form.get('action')
 
 
@@ -94,13 +94,14 @@ def login():
                 error_message = 'Passwords don\'t match'
             else:
                 # continue with register
-                displayname = username
-                username = username.lower()
+                displayname = str(username)
+                username = str(username).lower()
+                password = str(password)
 
                 # check if username is not already in database
-                query_result = db.session.execute(db.select(User).filter_by(username=username)).all()
+                existing_user = db.session.execute(db.select(User).filter_by(username=username)).scalar_one_or_none()
 
-                if len(query_result) > 0:
+                if existing_user is not None:
                     error_message = 'User already exists'
                 else:
                     hasher = argon2.PasswordHasher()
@@ -108,7 +109,7 @@ def login():
                     user = User()
                     user.username = username
                     user.displayname = displayname
-                    user.password = hasher.hash(password=password)
+                    user.password = hasher.hash(password)
                     user.is_admin = False
 
                     db.session.add(user)
@@ -120,24 +121,25 @@ def login():
         # LOGIN
         elif action == 'login':
 
-            username = username.lower()
-
             if username == '' or username is None:
                 error_message = 'empty Username is not allowed'
             elif password == '' or password is None:
                 error_message = 'empty Password is not allowed'
             else:
 
-                query_result = db.session.execute(db.select(User).filter_by(username=username)).all()
+                username = str(username).lower()
+                password = str(password)
 
-                if len(query_result) == 1:
-                    user = query_result[0][0]  # first [0] is to select first result, [0] is to access the class user
+                user = db.session.execute(db.select(User).filter_by(username=username)).scalar_one_or_none()
+
+                if user is not None:
+
                     try:
                         hasher = argon2.PasswordHasher()
-                        pprint.pprint(hasher.verify(hash=user.password, password=password))
-
-                        login_user(user, remember=True,duration=timedelta(days=1))
-                        return redirect("/myextensions/", code=302)
+                        if hasher.verify(hash=user.password, password=password):
+                            login_user(user, remember=True, duration=timedelta(days=1))
+                            return redirect("/myextensions/", code=302)
+                        
                     except argon2.exceptions.VerifyMismatchError:
                         pass
 
