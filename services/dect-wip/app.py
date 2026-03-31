@@ -117,6 +117,8 @@ def login():
 
                     info_message = 'account created'
 
+                    login_user(user, remember=True,  duration=timedelta(days=1))
+                    return redirect("/myextensions/", code=302)
 
         # LOGIN
         elif action == 'login':
