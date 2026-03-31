@@ -444,7 +444,7 @@ def trigger():
         client.logoff()
 
 def triggerOmm():
-    response = requests.get(f"http://{ommsync_url}/trigger")
+    response = requests.get(f"{ommsync_url}/trigger")
     return #TODO: remove
 
 
@@ -506,7 +506,7 @@ def init(config_path):
     if os.getenv('FLASK_SECRET_KEY_PATH') else config['flask'].get('secret_key')
     )
 
-    ommsync_url = os.getenv('OMMSYNC_URL', '127.0.0.1:8081')
+    ommsync_url = os.getenv('OMMSYNC_URL', 'http://127.0.0.1:8081')
 
     # autogenerate secret_key if not provided
     if not app.secret_key:
