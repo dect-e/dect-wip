@@ -8,59 +8,72 @@
     <p class="h3">Login</p>
 </div>
 
+
 <!-- Forms -->
 
 <div class="container-xl">
 
-    {% if info_message|length > 0 %}
-    <div class="alert alert-info" role="alert">
-      {{ info_message }}
+  {% if info_message|length > 0 %}
+  <div class="alert alert-info" role="alert">
+    {{ info_message }}
+  </div>
+  {% endif %}
+
+  {% if error_message|length > 0 %}
+  <div class="alert alert-danger" role="alert">
+    {{ error_message }}
+  </div>
+  {% endif %}
+
+  <!-- Login-Form -->
+  <form action="/login/" method="POST">
+
+    <div class="mb-3">
+      <label class="form-label">Username:</label>
+      <input type="text" class="form-control" name="username" aria-describedby="username">
     </div>
-    {% endif %}
 
-    {% if error_message|length > 0 %}
-    <div class="alert alert-danger" role="alert">
-      {{ error_message }}
+    <div class="mb-3">
+      <label class="form-label">Password:</label>
+      <input type="password" class="form-control" name="password">
     </div>
-    {% endif %}
 
-    <!-- Login-Form -->
-    <form action="/login/" method="POST">
-      <input type="hidden" name="action" value="login">
-      <div class="mb-3">
-        <label class="form-label">Username</label>
-        <input type="text" class="form-control" name="username" aria-describedby="username">
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Password</label>
-        <input type="password" class="form-control" name="password">
-      </div>
-      <button type="submit" class="btn btn-primary">Login</button>
-    </form>
+    <div class="mb-3">
+      <label style="display:none;" id="password_repeat_label" class="form-label">Password wiederholen:</label>
+      <input style="display:none;" id="password_repeat" type="password" class="form-control" name="password_repeat">
+    </div>
 
-    <br>
-    <br>
-    <br>
-    <br>
+    <input id="action" type="hidden" name="action" value="login">
+    <button id="submit" type="submit" class="btn btn-primary">Anmelden</button>
 
-    <!-- Register-Form -->
-    <form action="/login/" method="POST">
-      <input type="hidden" name="action" value="register">
-      <div class="mb-3">
-        <label class="form-label">Username</label>
-        <input type="text" class="form-control" name="username" aria-describedby="username">
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Password</label>
-        <input type="password" class="form-control" name="password1">
-      </div>
-      <div class="mb-3">
-        <label class="form-label">repeat Password</label>
-        <input type="password" class="form-control" name="password2">
-      </div>
-      <button type="submit" class="btn btn-primary">Register</button>
-    </form>
+  </form>
+
+  <br>
+  <button onclick="RegisterView()" id="RegisterViewButton" class="btn btn-secondary">Kein Login? Hier registrieren</button>
+  <button onclick="LoginView()" id="LoginViewButton" class="btn btn-secondary" style="display:none;">Schon Registriert? Hier anmelden</button>
 
 </div>
+
+<script>
+
+  function LoginView() {
+    document.getElementById("RegisterViewButton").style.display = "inline";
+    document.getElementById("password_repeat").style.display = "none";
+    document.getElementById("password_repeat_label").style.display = "none";
+    document.getElementById("LoginViewButton").style.display = "none";
+    document.getElementById("submit").innerText = "Anmelden";
+    document.getElementById("action").value = "login";
+  }
+
+  function RegisterView() {
+    document.getElementById("RegisterViewButton").style.display = "none";
+    document.getElementById("password_repeat").style.display = "inline";
+    document.getElementById("password_repeat_label").style.display = "inline";
+    document.getElementById("LoginViewButton").style.display = "inline";
+    document.getElementById("submit").innerText = "Registrieren";
+    document.getElementById("action").value = "register";
+  }
+
+</script>
 
 {% endblock %}

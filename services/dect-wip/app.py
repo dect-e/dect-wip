@@ -34,13 +34,9 @@ def load_user(user_id):
     """
     provide information about the user in flask
     """
-    query_result = db.session.execute(db.select(User).filter_by(id=user_id)).all()
-    # da könnte man mal scalar_one_or_none() ausprobieren, dann fällt der len == 1 quatsch raus
+    user = db.session.execute(db.select(User).filter_by(id=user_id)).scalar_one_or_none()
+    return user
 
-    if len(query_result) == 1:
-        return query_result[0][0]
-
-    return None
 
 
 def getUserExtensions(filterByUserId: User.id | None, searchFor: str | None, showPublicOnly: bool = True) -> list:
@@ -75,28 +71,32 @@ def login():
 
     # POST - Register or Login?
     if request.method == 'POST':
-        # REGISTER
-        if request.form.get('action') == 'register':
 
-            username = str(request.form.get('username'))
-            password1 = str(request.form.get('password1'))
-            password2 = str(request.form.get('password2'))
+        username = request.form.get('username')
+        password = request.form.get('password')
+        password_repeat = request.form.get('password_repeat')
+        action = request.form.get('action')
+
+
+        # REGISTER
+        if action == 'register':
 
             if username == '' or username is None:
                 error_message = 'empty Username is not allowed'
-            elif password1 == '' or password1 is None:
+            elif password == '' or password is None:
                 error_message = 'empty Password is not allowed'
-            elif password1 != password2:
+            elif password != password_repeat:
                 error_message = 'Passwords don\'t match'
             else:
                 # continue with register
-                displayname = username
-                username = username.lower()
+                displayname = str(username)
+                username = str(username).lower()
+                password = str(password)
 
                 # check if username is not already in database
-                query_result = db.session.execute(db.select(User).filter_by(username=username)).all()
+                existing_user = db.session.execute(db.select(User).filter_by(username=username)).scalar_one_or_none()
 
-                if len(query_result) > 0:
+                if existing_user is not None:
                     error_message = 'User already exists'
                 else:
                     hasher = argon2.PasswordHasher()
@@ -104,7 +104,7 @@ def login():
                     user = User()
                     user.username = username
                     user.displayname = displayname
-                    user.password = hasher.hash(password=password1)
+                    user.password = hasher.hash(password)
                     user.is_admin = False
 
                     db.session.add(user)
@@ -112,12 +112,11 @@ def login():
 
                     info_message = 'account created'
 
+                    login_user(user, remember=True,  duration=timedelta(days=1))
+                    return redirect("/myextensions/", code=302)
 
         # LOGIN
-        elif request.form.get('action') == 'login':
-
-            username = str(request.form.get('username')).lower()
-            password = str(request.form.get('password'))
+        elif action == 'login':
 
             if username == '' or username is None:
                 error_message = 'empty Username is not allowed'
@@ -125,22 +124,24 @@ def login():
                 error_message = 'empty Password is not allowed'
             else:
 
-                query_result = db.session.execute(db.select(User).filter_by(username=username)).all()
+                username = str(username).lower()
+                password = str(password)
 
-                if len(query_result) == 1:
-                    user = query_result[0][0]  # first [0] is to select first result, [0] is to access the class user
+                user = db.session.execute(db.select(User).filter_by(username=username)).scalar_one_or_none()
+
+                if user is not None:
+
                     try:
                         hasher = argon2.PasswordHasher()
-                        pprint.pprint(hasher.verify(hash=user.password, password=password))
-
-                        login_user(user, remember=True,duration=timedelta(days=1))
-                        return redirect("/myextensions/", code=302)
+                        if hasher.verify(hash=user.password, password=password):
+                            login_user(user, remember=True, duration=timedelta(days=1))
+                            return redirect("/myextensions/", code=302)
+                        
                     except argon2.exceptions.VerifyMismatchError:
-                        print(username + ' argon2 verification for password failed')
-                        error_message = 'wrong login'
-                else:
-                    print("login: " + username + ' ' + str(len(query_result)) + ' in Database. Don\'t allow login')
-                    error_message = 'wrong login'
+                        pass
+
+                error_message = 'login error, check username and password'
+
 
     # Fallback - used if login not successful or no login attempt
     return render_template('login.html.j2', default_data=fetch_default_data_for_templates(), error_message=error_message, info_message=info_message)
