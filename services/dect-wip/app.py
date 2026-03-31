@@ -144,11 +144,10 @@ def login():
                         login_user(user, remember=True,duration=timedelta(days=1))
                         return redirect("/myextensions/", code=302)
                     except argon2.exceptions.VerifyMismatchError:
-                        print(username + ' argon2 verification for password failed')
-                        error_message = 'wrong login'
-                else:
-                    print("login: " + username + ' ' + str(len(query_result)) + ' in Database. Don\'t allow login')
-                    error_message = 'wrong login'
+                        pass
+
+                error_message = 'login error, check username and password'
+
 
     # Fallback - used if login not successful or no login attempt
     return render_template('login.html.j2', default_data=fetch_default_data_for_templates(), error_message=error_message, info_message=info_message)
