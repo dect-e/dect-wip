@@ -17,8 +17,11 @@ from database import UserExtension,TempExtension,User # database models
 scheduler = APScheduler()
 login_manager = LoginManager()
 
-
-app = Flask(__name__)
+instance_path = os.getenv('INSTANCE_PATH')
+if(instance_path):
+    app = Flask(__name__, instance_path="/tmp/")
+else:
+    app = Flask(__name__)
 
 # config
 
@@ -441,7 +444,7 @@ def trigger():
         client.logoff()
 
 def triggerOmm():
-    response = requests.get("http://127.0.0.1:8081/trigger")
+    response = requests.get(f"{ommsync_url}/trigger")
     return #TODO: remove
 
 
@@ -459,14 +462,11 @@ def fetch_default_data_for_templates():
 
     return data
 
-
-@click.command()
-@click.option('--config', 'config_path', envvar='CONFIG', default='/etc/dect-wip.ini', help='optional config location')
 def init(config_path):
 
     # setup global config
 
-    global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count, show_voucher, dectwip_config
+    global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count, show_voucher, dectwip_config, ommsync_url
 
     print(f'Using config: {config_path}')
 
@@ -475,13 +475,16 @@ def init(config_path):
 
     pjsip_wizard_user_conf = config['asterisk'].get('pjsip_wizard_user_conf')
     pjsip_wizard_temp_conf = config['asterisk'].get('pjsip_wizard_temp_conf')
+    ami_pw = (
+    open(os.getenv('AMI_PW_PATH')).read().strip() if os.getenv('AMI_PW_PATH') else config['asterisk'].get('ami_password')
+    )
     dectwip_config = {
         'asterisk': {
             'ami': {
                 'host': config['asterisk'].get('ami_host'),
                 'port': int(config['asterisk'].get('ami_port')),
                 'user': config['asterisk'].get('ami_user'),
-                'password': config['asterisk'].get('ami_password')
+                'password': ami_pw
                 
             }
         },
@@ -498,7 +501,12 @@ def init(config_path):
     show_voucher = config['event'].get('show_voucher', 'True')
 
     # init flask
-    app.secret_key = config['flask'].get('secret_key')
+    app.secret_key = (
+    open(os.getenv('FLASK_SECRET_KEY_PATH')).read().strip() 
+    if os.getenv('FLASK_SECRET_KEY_PATH') else config['flask'].get('secret_key')
+    )
+
+    ommsync_url = os.getenv('OMMSYNC_URL', 'http://127.0.0.1:8081')
 
     # autogenerate secret_key if not provided
     if not app.secret_key:
@@ -528,9 +536,17 @@ def init(config_path):
         print('enabling Swagger - /apidocs/')
         swagger = Swagger(app)
 
+@click.command()
+@click.option('--config', 'config_path', envvar='CONFIG', default='/etc/dect-wip.ini', help='optional config location')
+def init_dev(config_path):
+    init(config_path)
     # run webserver/app
     app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=True)
 
+def init_wsgi():
+    config_path = os.getenv('CONFIG', '/etc/dect-wip.ini')
+    init(config_path)
+    return app
 
 if __name__ == "__main__":
-    init()
+    init_dev()
