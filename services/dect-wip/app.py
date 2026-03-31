@@ -40,13 +40,8 @@ login_manager = LoginManager()
 
 @login_manager.user_loader
 def load_user(user_id):
-    query_result = db.session.execute(db.select(User).filter_by(id=user_id)).all() 
-    # da könnte man mal scalar_one_or_none() ausprobieren, dann fällt der len == 1 quatsch raus
-
-    if len(query_result) == 1:
-        return query_result[0][0]
-
-    return None
+    user = db.session.execute(db.select(User).filter_by(id=user_id)).scalar_one_or_none()
+    return user
 
 
 def getUserExtensions(filterByUserId: User.id | None, searchFor: str | None, showPublicOnly: bool = True) -> list:
