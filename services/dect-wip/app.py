@@ -17,9 +17,9 @@ from database import UserExtension,TempExtension,User # database models
 scheduler = APScheduler()
 login_manager = LoginManager()
 
-instance_path = os.getenv('INSTANCE_PATH')
+instance_path = os.getenv('INSTANCE_PATH', "/tmp/")
 if(instance_path):
-    app = Flask(__name__, instance_path="/tmp/")
+    app = Flask(__name__, instance_path=instance_path)
 else:
     app = Flask(__name__)
 
