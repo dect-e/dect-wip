@@ -1,7 +1,8 @@
 from bottle import route, run, request, template
 import requests
+import os
 
-dect_wip_ip = "127.0.0.1:8080"
+dect_wip_ip = os.getenv('DECT_WIP_URL', '127.0.0.1:8080')
 
 xsi_template = """<?xml version="1.0" encoding="UTF-8"?>
 <Personal xmlns="http://schema.broadsoft.com/xsi”>
@@ -34,4 +35,5 @@ def return_phonebook(caller):
 
     return template(xsi_template, names_and_extensions=names_and_extensions)
 
-run(host='0.0.0.0', port=8082, debug=False)
+port = os.getenv('DECT_WIP_PHONEBOOK_PORT', '8082')
+run(host='0.0.0.0', port=port, debug=False)

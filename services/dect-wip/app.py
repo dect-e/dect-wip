@@ -17,8 +17,11 @@ from database import UserExtension,TempExtension,User # database models
 scheduler = APScheduler()
 login_manager = LoginManager()
 
-
-app = Flask(__name__)
+instance_path = os.getenv('INSTANCE_PATH', "/tmp/")
+if(instance_path):
+    app = Flask(__name__, instance_path=instance_path)
+else:
+    app = Flask(__name__)
 
 # config
 
@@ -31,13 +34,9 @@ def load_user(user_id):
     """
     provide information about the user in flask
     """
-    query_result = db.session.execute(db.select(User).filter_by(id=user_id)).all()
-    # da könnte man mal scalar_one_or_none() ausprobieren, dann fällt der len == 1 quatsch raus
+    user = db.session.execute(db.select(User).filter_by(id=user_id)).scalar_one_or_none()
+    return user
 
-    if len(query_result) == 1:
-        return query_result[0][0]
-
-    return None
 
 
 def getUserExtensions(filterByUserId: User.id | None, searchFor: str | None, showPublicOnly: bool = True) -> list:
@@ -72,28 +71,32 @@ def login():
 
     # POST - Register or Login?
     if request.method == 'POST':
-        # REGISTER
-        if request.form.get('action') == 'register':
 
-            username = str(request.form.get('username'))
-            password1 = str(request.form.get('password1'))
-            password2 = str(request.form.get('password2'))
+        username = request.form.get('username')
+        password = request.form.get('password')
+        password_repeat = request.form.get('password_repeat')
+        action = request.form.get('action')
+
+
+        # REGISTER
+        if action == 'register':
 
             if username == '' or username is None:
                 error_message = 'empty Username is not allowed'
-            elif password1 == '' or password1 is None:
+            elif password == '' or password is None:
                 error_message = 'empty Password is not allowed'
-            elif password1 != password2:
+            elif password != password_repeat:
                 error_message = 'Passwords don\'t match'
             else:
                 # continue with register
-                displayname = username
-                username = username.lower()
+                displayname = str(username)
+                username = str(username).lower()
+                password = str(password)
 
                 # check if username is not already in database
-                query_result = db.session.execute(db.select(User).filter_by(username=username)).all()
+                existing_user = db.session.execute(db.select(User).filter_by(username=username)).scalar_one_or_none()
 
-                if len(query_result) > 0:
+                if existing_user is not None:
                     error_message = 'User already exists'
                 else:
                     hasher = argon2.PasswordHasher()
@@ -101,7 +104,7 @@ def login():
                     user = User()
                     user.username = username
                     user.displayname = displayname
-                    user.password = hasher.hash(password=password1)
+                    user.password = hasher.hash(password)
                     user.is_admin = False
 
                     db.session.add(user)
@@ -109,12 +112,11 @@ def login():
 
                     info_message = 'account created'
 
+                    login_user(user, remember=True,  duration=timedelta(days=1))
+                    return redirect("/myextensions/", code=302)
 
         # LOGIN
-        elif request.form.get('action') == 'login':
-
-            username = str(request.form.get('username')).lower()
-            password = str(request.form.get('password'))
+        elif action == 'login':
 
             if username == '' or username is None:
                 error_message = 'empty Username is not allowed'
@@ -122,22 +124,24 @@ def login():
                 error_message = 'empty Password is not allowed'
             else:
 
-                query_result = db.session.execute(db.select(User).filter_by(username=username)).all()
+                username = str(username).lower()
+                password = str(password)
 
-                if len(query_result) == 1:
-                    user = query_result[0][0]  # first [0] is to select first result, [0] is to access the class user
+                user = db.session.execute(db.select(User).filter_by(username=username)).scalar_one_or_none()
+
+                if user is not None:
+
                     try:
                         hasher = argon2.PasswordHasher()
-                        pprint.pprint(hasher.verify(hash=user.password, password=password))
-
-                        login_user(user, remember=True,duration=timedelta(days=1))
-                        return redirect("/myextensions/", code=302)
+                        if hasher.verify(hash=user.password, password=password):
+                            login_user(user, remember=True, duration=timedelta(days=1))
+                            return redirect("/myextensions/", code=302)
+                        
                     except argon2.exceptions.VerifyMismatchError:
-                        print(username + ' argon2 verification for password failed')
-                        error_message = 'wrong login'
-                else:
-                    print("login: " + username + ' ' + str(len(query_result)) + ' in Database. Don\'t allow login')
-                    error_message = 'wrong login'
+                        pass
+
+                error_message = 'login error, check username and password'
+
 
     # Fallback - used if login not successful or no login attempt
     return render_template('login.html.j2', default_data=fetch_default_data_for_templates(), error_message=error_message, info_message=info_message)
@@ -441,7 +445,7 @@ def trigger():
         client.logoff()
 
 def triggerOmm():
-    response = requests.get("http://127.0.0.1:8081/trigger")
+    response = requests.get(f"{ommsync_url}/trigger")
     return #TODO: remove
 
 
@@ -459,14 +463,11 @@ def fetch_default_data_for_templates():
 
     return data
 
-
-@click.command()
-@click.option('--config', 'config_path', envvar='CONFIG', default='/etc/dect-wip.ini', help='optional config location')
 def init(config_path):
 
     # setup global config
 
-    global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count, show_voucher, dectwip_config
+    global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count, show_voucher, dectwip_config, ommsync_url
 
     print(f'Using config: {config_path}')
 
@@ -475,13 +476,16 @@ def init(config_path):
 
     pjsip_wizard_user_conf = config['asterisk'].get('pjsip_wizard_user_conf')
     pjsip_wizard_temp_conf = config['asterisk'].get('pjsip_wizard_temp_conf')
+    ami_pw = (
+    open(os.getenv('AMI_PW_PATH')).read().strip() if os.getenv('AMI_PW_PATH') else config['asterisk'].get('ami_password')
+    )
     dectwip_config = {
         'asterisk': {
             'ami': {
                 'host': config['asterisk'].get('ami_host'),
                 'port': int(config['asterisk'].get('ami_port')),
                 'user': config['asterisk'].get('ami_user'),
-                'password': config['asterisk'].get('ami_password')
+                'password': ami_pw
                 
             }
         },
@@ -498,7 +502,12 @@ def init(config_path):
     show_voucher = config['event'].get('show_voucher', 'True')
 
     # init flask
-    app.secret_key = config['flask'].get('secret_key')
+    app.secret_key = (
+    open(os.getenv('FLASK_SECRET_KEY_PATH')).read().strip() 
+    if os.getenv('FLASK_SECRET_KEY_PATH') else config['flask'].get('secret_key')
+    )
+
+    ommsync_url = os.getenv('OMMSYNC_URL', 'http://127.0.0.1:8081')
 
     # autogenerate secret_key if not provided
     if not app.secret_key:
@@ -528,9 +537,17 @@ def init(config_path):
         print('enabling Swagger - /apidocs/')
         swagger = Swagger(app)
 
+@click.command()
+@click.option('--config', 'config_path', envvar='CONFIG', default='/etc/dect-wip.ini', help='optional config location')
+def init_dev(config_path):
+    init(config_path)
     # run webserver/app
     app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=True)
 
+def init_wsgi():
+    config_path = os.getenv('CONFIG', '/etc/dect-wip.ini')
+    init(config_path)
+    return app
 
 if __name__ == "__main__":
-    init()
+    init_dev()
