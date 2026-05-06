@@ -424,25 +424,32 @@ def writePjsip():
     tempExts = [ x[0] for x in query_result ] 
     utilities.pjsipConfig(pjsip_wizard_temp_conf, tempExts, "temp_dect")
 
-
-
 def trigger():
     with app.app_context():
-        #os.system('asterisk -rx "pjsip reload"')
         writePjsip()
-        
+
         from asterisk.ami import AMIClient, SimpleAction
-
-        client = AMIClient(address=dectwip_config['asterisk']['ami']['host'],port=dectwip_config['asterisk']['ami']['port'])
-        client.login(username=dectwip_config['asterisk']['ami']['user'],secret=dectwip_config['asterisk']['ami']['password'])
-
-        action = SimpleAction(
-            'Command',
-            Command = 'pjsip reload'
+        client = AMIClient(
+            address=dectwip_config['asterisk']['ami']['host'],
+            port=dectwip_config['asterisk']['ami']['port']
         )
-        client.send_action(action)
-        # TODO: verifiy that command was successful
-        client.logoff()
+        client.login(
+            username=dectwip_config['asterisk']['ami']['user'],
+            secret=dectwip_config['asterisk']['ami']['password']
+        )
+        try:
+            action = SimpleAction('Command', Command='module reload res_pjsip_config_wizard.so')
+            result = client.send_action(action)
+            response = result.response if hasattr(result, 'response') else result
+
+            status = getattr(response, 'status', '').lower()
+            output = response.keys.get('Output', '') if isinstance(getattr(response, 'keys', None), dict) else ''
+
+            if not (status == 'success' and 'reloaded successfully' in output.lower()):
+                print(f"PJSIP reload failed — status: {status}, output: {output}")
+                raise RuntimeError(f"PJSIP reload failed: {output or status}")
+        finally:
+            client.logoff()
 
 def triggerOmm():
     response = requests.get(f"{ommsync_url}/trigger")
