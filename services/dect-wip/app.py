@@ -438,16 +438,16 @@ def trigger():
             secret=dectwip_config['asterisk']['ami']['password']
         )
         try:
-            action = SimpleAction('Command', Command='module reload res_pjsip.so')
-            response = client.send_action(action)
+            action = SimpleAction('Command', Command='module reload res_pjsip_config_wizard.so')
+            result = client.send_action(action)
+            response = result.response if hasattr(result, 'response') else result
 
             status = getattr(response, 'status', '').lower()
             output = response.keys.get('Output', '') if isinstance(getattr(response, 'keys', None), dict) else ''
 
-            if status == 'success' and 'reloaded successfully' in output.lower():
-                print(f"PJSIP reloaded successfully: {output}")
-            else:
+            if not (status == 'success' and 'reloaded successfully' in output.lower()):
                 print(f"PJSIP reload failed — status: {status}, output: {output}")
+                raise RuntimeError(f"PJSIP reload failed: {output or status}")
         finally:
             client.logoff()
 
