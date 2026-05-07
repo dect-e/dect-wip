@@ -9,17 +9,13 @@
 </div>
 
 
-<!-- tmp -->
+{% if infobox_content %}
 <div class="container-xl mt-3 mb-3">
   <div class="alert alert-info" role="alert">
-    Experimenteller SIP-Zugang<br>
-    Username: $Rufnummer<br>
-    Passwort: $SIP-Passwort<br>
-    Realm/Domain: sip.dect.site<br>
-    Port: 5060<br>
-    Transport: udp<br>
+    {{ infobox_content | replace('\n', '<br>') | safe }}
   </div>
 </div>
+{% endif %}
 
 
 <!-- Übersicht -->
