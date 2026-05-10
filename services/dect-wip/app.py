@@ -222,8 +222,14 @@ def myextensions():
     if request.method == 'GET':
         exts = getUserExtensions(filterByUserId=current_user.id,searchFor=None,showPublicOnly=False)
 
-        return render_template('myextensions.html.j2', default_data=fetch_default_data_for_templates(), exts=exts)
+        infobox_file = os.path.join(app.instance_path, "infobox.html")
 
+        infobox_content = None
+        if os.path.exists(infobox_file):
+            with open(infobox_file, "r", encoding="utf-8") as f:
+                infobox_content = f.read()
+
+        return render_template('myextensions.html.j2', default_data=fetch_default_data_for_templates(), exts=exts, infobox_content=infobox_content)
 
 ## API V1
 
