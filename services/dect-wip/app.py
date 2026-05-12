@@ -4,6 +4,7 @@ import utilities
 import argon2
 import os
 import html
+import emoji
 from datetime import timedelta
 from flask import Flask, render_template, request, jsonify, make_response, Response, redirect, abort
 from flask_apscheduler import APScheduler
@@ -37,10 +38,7 @@ def load_user(user_id):
     user = db.session.execute(db.select(User).filter_by(id=user_id)).scalar_one_or_none()
     return user
 
-
-
-def getUserExtensions(filterByUserId: User.id | None, searchFor: str | None, showPublicOnly: bool = True) -> list:
-
+def getUserExtensions(filterByUserId: User.id | None, searchFor: str | None, showPublicOnly: bool = True) -> list: # pyright: ignore[reportInvalidTypeForm]
     query = db.select(UserExtension).order_by(UserExtension.name.asc())
     
     if showPublicOnly:
@@ -54,15 +52,12 @@ def getUserExtensions(filterByUserId: User.id | None, searchFor: str | None, sho
 
     return db.session.execute(query).scalars().all()
 
-
-
 ## Routes
 
 @app.route('/')
 def default(): 
     return redirect("/phonebook/", code=302)
     #return render_template('base.html.j2', default_data=fetch_default_data_for_templates())
-
 
 @app.route('/login/', methods=['GET', 'POST'])
 def login():
@@ -142,10 +137,8 @@ def login():
 
                 error_message = 'login error, check username and password'
 
-
     # Fallback - used if login not successful or no login attempt
     return render_template('login.html.j2', default_data=fetch_default_data_for_templates(), error_message=error_message, info_message=info_message)
-
  
 @app.route('/admin/', methods=['GET'])
 @login_required
@@ -157,20 +150,15 @@ def admin():
     else:
         return abort(403)
 
-
 @app.route('/logout/', methods=['GET'])
 def logout():
     logout_user()
     return redirect("/login/", code=302)
 
-
 @app.route('/phonebook/')
 def phonebook():
-
     exts = getUserExtensions(filterByUserId=None,searchFor=None,showPublicOnly=True)
-
     return render_template('phonebook.html.j2', default_data=fetch_default_data_for_templates(), exts=exts)
-
 
 @app.route('/myextensions/', methods=['POST', 'DELETE', 'GET'])
 @login_required
@@ -188,7 +176,13 @@ def myextensions():
         ext.token = f'{token_prefix}{utilities.getRandomNumber(token_random_count)}'
         ext.user_id = current_user.id
 
-        if len(ext.extension) == 4 and ext.extension.isdigit() and int(ext.extension[:1]) > 0:
+        if len(ext.extension) != 4 or not ext.extension.isdigit() or int(ext.extension[:1]) < 0:
+            response = make_response(jsonify( {"message": "invalid extension"}), 400)
+        elif emoji.emoji_count(ext.info) > 0 or len(ext.info) > 20:
+            response = make_response(jsonify( {"messsage": "invalid data or length in info field"} ), 400)
+        elif emoji.emoji_count(ext.name) > 0 or len(ext.name) > 20:
+            response = make_response(jsonify( {"messsage": "invalid data or length in name field"} ), 400)
+        else:
             try:
                 db.session.add(ext)
                 db.session.commit()
@@ -196,14 +190,10 @@ def myextensions():
                 response = make_response(jsonify( {"message": "extension added"}), 200)
             except:
                 response = make_response(jsonify( {"message": "extension can't be added. Do you need a voucher?"}), 400)
-
-
-        else:
-            response = make_response(jsonify( {"message": "you need 4 digits"}), 400)
+            
         return response
 
     if request.method == 'DELETE':
-
         req_json = request.get_json()
         selection = db.select(UserExtension).filter_by(extension = req_json['extension'])
         ext = db.session.execute(selection).first()
@@ -223,7 +213,6 @@ def myextensions():
         exts = getUserExtensions(filterByUserId=current_user.id,searchFor=None,showPublicOnly=False)
 
         return render_template('myextensions.html.j2', default_data=fetch_default_data_for_templates(), exts=exts)
-
 
 ## API V1
 
@@ -317,13 +306,10 @@ def AddTempExtensionToDB():
         description: Extension successfully added
     """
 
-
     req_json = request.get_json()
-    
     print(req_json)
 
     ext = TempExtension()
-    
     ext.extension = req_json['extension']
     ext.password = req_json['password']
     ext.uid = int(req_json['uid'])
@@ -357,14 +343,10 @@ def phonebook_json():
               name:
                 type: string
     """
-
-
-    search_string = request.args.get('search')
     
+    search_string = request.args.get('search')
     query_result = getUserExtensions(filterByUserId=None,searchFor=search_string,showPublicOnly=True)
-
     names_and_extensions = [{"extension": entry.extension, "name": entry.name} for entry in query_result]
-
     return jsonify(names_and_extensions)
 
 @app.route('/api/v1/ClaimExtensionByVoucher/', methods=['POST'])
@@ -393,7 +375,6 @@ def ClaimExtensionByVoucher():
         description: Missing or empty voucher field
     """
 
-
     req_json = request.get_json()
     print(req_json)
 
@@ -410,12 +391,9 @@ def ClaimExtensionByVoucher():
     db.session.commit()
 
     #TODO: add number of extensions added
-    
     return "success", 200
 
-
 def writePjsip():
-
     query_result = db.session.execute(db.select(UserExtension)).all()
     userExts = [ x[0] for x in query_result ] 
     utilities.pjsipConfig(pjsip_wizard_user_conf, userExts, "user")
@@ -455,8 +433,6 @@ def triggerOmm():
     response = requests.get(f"{ommsync_url}/trigger")
     return #TODO: remove
 
-
-
 def fetch_default_data_for_templates():
     data = {
         'current_user': current_user,
@@ -471,9 +447,7 @@ def fetch_default_data_for_templates():
     return data
 
 def init(config_path):
-
     # setup global config
-
     global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count, show_voucher, dectwip_config, ommsync_url
 
     print(f'Using config: {config_path}')
@@ -484,16 +458,16 @@ def init(config_path):
     pjsip_wizard_user_conf = config['asterisk'].get('pjsip_wizard_user_conf')
     pjsip_wizard_temp_conf = config['asterisk'].get('pjsip_wizard_temp_conf')
     ami_pw = (
-    open(os.getenv('AMI_PW_PATH')).read().strip() if os.getenv('AMI_PW_PATH') else config['asterisk'].get('ami_password')
+        open(os.getenv('AMI_PW_PATH')).read().strip() if os.getenv('AMI_PW_PATH') else config['asterisk'].get('ami_password')
     )
+    
     dectwip_config = {
         'asterisk': {
             'ami': {
                 'host': config['asterisk'].get('ami_host'),
                 'port': int(config['asterisk'].get('ami_port')),
                 'user': config['asterisk'].get('ami_user'),
-                'password': ami_pw
-                
+                'password': ami_pw   
             }
         },
         'flask': { 
@@ -510,8 +484,8 @@ def init(config_path):
 
     # init flask
     app.secret_key = (
-    open(os.getenv('FLASK_SECRET_KEY_PATH')).read().strip() 
-    if os.getenv('FLASK_SECRET_KEY_PATH') else config['flask'].get('secret_key')
+        open(os.getenv('FLASK_SECRET_KEY_PATH')).read().strip() 
+        if os.getenv('FLASK_SECRET_KEY_PATH') else config['flask'].get('secret_key')
     )
 
     ommsync_url = os.getenv('OMMSYNC_URL', 'http://127.0.0.1:8081')
