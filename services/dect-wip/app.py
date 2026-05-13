@@ -234,7 +234,7 @@ def CreateUserExtension():
 
             response = make_response(jsonify( {"message": "extension added"}), 200)
 
-            poke_asterisk_soon()
+            schedule_asterisk_configuration_update()
         except:
             response = make_response(jsonify( {"message": "extension can't be added. Do you need a voucher?"}), 400)
 
@@ -277,7 +277,7 @@ def DeleteUserExtension():
 
         response = make_response(jsonify( {"message": "extension deleted"}), 200)
 
-        poke_asterisk_soon()
+        schedule_asterisk_configuration_update()
     else:
         response = make_response(jsonify( {"message": "extension not owned by user"}), 403)
     return response
@@ -425,7 +425,7 @@ def AddTempExtensionToDB():
     db.session.add(ext)
     db.session.commit()
 
-    poke_asterisk_soon()
+    schedule_asterisk_configuration_update()
     
     return "success", 200
 
@@ -504,7 +504,7 @@ def ClaimExtensionByVoucher():
     )
     db.session.commit()
 
-    poke_asterisk_soon()
+    schedule_asterisk_configuration_update()
 
     #TODO: add number of extensions added
     
@@ -527,8 +527,8 @@ def writePjsip():
     utilities.pjsipConfig(pjsip_wizard_temp_conf, tempExts, "temp_dect")
 
 # Generates new Asterisk configs and pokes Asterisk to reload configs
-@scheduler.task('interval', id='poke_asterisk', seconds=300, next_run_time=datetime.now(), max_instances=1)  # every 5min, is called immediately on changes in the db
-def poke_asterisk():
+@scheduler.task('interval', id='update_asterisk_configuration', seconds=300, next_run_time=datetime.now(), max_instances=1)  # every 5min, is called immediately on changes in the db
+def update_asterisk_configuration():
     with lock_asterisk:
         with app.app_context():
             writePjsip()
@@ -557,8 +557,8 @@ def poke_asterisk():
                 client.logoff()
 
 # schedules a task to poke asterisk soon^TM
-def poke_asterisk_soon():  # TM
-    scheduler.modify_job('poke_asterisk', next_run_time=datetime.now())
+def schedule_asterisk_configuration_update():
+    scheduler.modify_job('update_asterisk_configuration', next_run_time=datetime.now())
 
 
 def fetch_default_data_for_templates():
