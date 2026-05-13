@@ -11,6 +11,8 @@ from flask_login import LoginManager, login_user, login_required, logout_user, c
 import click
 import requests
 from flasgger import Swagger
+from threading import Lock
+from datetime import datetime
 
 from database import db # database object
 from database import UserExtension,TempExtension,User # database models
@@ -194,6 +196,8 @@ def myextensions():
                 db.session.commit()
 
                 response = make_response(jsonify( {"message": "extension added"}), 200)
+
+                poke_asterisk_soon()
             except:
                 response = make_response(jsonify( {"message": "extension can't be added. Do you need a voucher?"}), 400)
 
@@ -215,6 +219,8 @@ def myextensions():
             db.session.commit()
 
             response = make_response(jsonify( {"message": "extension deleted"}), 200)
+
+            poke_asterisk_soon()
         else:
             response = make_response(jsonify( {"message": "extension not owned by user"}), 403)
         return response
@@ -331,6 +337,8 @@ def AddTempExtensionToDB():
     
     db.session.add(ext)
     db.session.commit()
+
+    poke_asterisk_soon()
     
     return "success", 200
 
@@ -409,12 +417,19 @@ def ClaimExtensionByVoucher():
     )
     db.session.commit()
 
+    poke_asterisk_soon()
+
     #TODO: add number of extensions added
     
     return "success", 200
 
 
+lock_asterisk = Lock()
+
+# generates Asterisk config
 def writePjsip():
+    if lock_asterisk.locked():
+        raise RuntimeError("the writePjsip function assumes that the asterisk lock is already acquired by the calling function")
 
     query_result = db.session.execute(db.select(UserExtension)).all()
     userExts = [ x[0] for x in query_result ] 
@@ -424,32 +439,39 @@ def writePjsip():
     tempExts = [ x[0] for x in query_result ] 
     utilities.pjsipConfig(pjsip_wizard_temp_conf, tempExts, "temp_dect")
 
-def trigger():
-    with app.app_context():
-        writePjsip()
+# Generates new Asterisk configs and pokes Asterisk to reload configs
+@scheduler.task('interval', id='poke_asterisk', seconds=300, next_run_time=datetime.now(), max_instances=1)  # every 5min, is called immediately on changes in the db
+def poke_asterisk():
+    with lock_asterisk:
+        with app.app_context():
+            writePjsip()
 
-        from asterisk.ami import AMIClient, SimpleAction
-        client = AMIClient(
-            address=dectwip_config['asterisk']['ami']['host'],
-            port=dectwip_config['asterisk']['ami']['port']
-        )
-        client.login(
-            username=dectwip_config['asterisk']['ami']['user'],
-            secret=dectwip_config['asterisk']['ami']['password']
-        )
-        try:
-            action = SimpleAction('Command', Command='module reload res_pjsip_config_wizard.so')
-            result = client.send_action(action)
-            response = result.response if hasattr(result, 'response') else result
+            from asterisk.ami import AMIClient, SimpleAction
+            client = AMIClient(
+                address=dectwip_config['asterisk']['ami']['host'],
+                port=dectwip_config['asterisk']['ami']['port']
+            )
+            client.login(
+                username=dectwip_config['asterisk']['ami']['user'],
+                secret=dectwip_config['asterisk']['ami']['password']
+            )
+            try:
+                action = SimpleAction('Command', Command='module reload res_pjsip_config_wizard.so')
+                result = client.send_action(action)
+                response = result.response if hasattr(result, 'response') else result
 
-            status = getattr(response, 'status', '').lower()
-            output = response.keys.get('Output', '') if isinstance(getattr(response, 'keys', None), dict) else ''
+                status = getattr(response, 'status', '').lower()
+                output = response.keys.get('Output', '') if isinstance(getattr(response, 'keys', None), dict) else ''
 
-            if not (status == 'success' and 'reloaded successfully' in output.lower()):
-                print(f"PJSIP reload failed — status: {status}, output: {output}")
-                raise RuntimeError(f"PJSIP reload failed: {output or status}")
-        finally:
-            client.logoff()
+                if not (status == 'success' and 'reloaded successfully' in output.lower()):
+                    print(f"PJSIP reload failed — status: {status}, output: {output}")
+                    raise RuntimeError(f"PJSIP reload failed: {output or status}")
+            finally:
+                client.logoff()
+
+# schedules a task to poke asterisk soon^TM
+def poke_asterisk_soon():  # TM
+    scheduler.modify_job('poke_asterisk', next_run_time=datetime.now())
 
 
 def fetch_default_data_for_templates():
@@ -526,7 +548,6 @@ def init(config_path):
     login_manager.init_app(app)
 
     scheduler.init_app(app)
-    scheduler.add_job(id='trigger', func=trigger, trigger='interval', seconds=5)
     scheduler.start()
 
     app.add_template_filter(utilities.format_token, 'format_token')
