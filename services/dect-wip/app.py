@@ -40,9 +40,19 @@ def load_user(user_id):
 
 
 def getUserExtensions(filterByUserId: User.id | None, searchFor: str | None, showPublicOnly: bool = True) -> list:
+    """
+    Retrieve user extensions from the database sorted by name
 
+    Args:
+        filterByUserId: Restrict results to extensions owned by the given user ID
+        searchFor: SQL LIKE pattern used to filter extension names
+        showPublicOnly: only public extensions are returned
+
+    Returns:
+        list: list of user extensions sorted by name
+    """
     query = db.select(UserExtension).order_by(UserExtension.name.asc())
-    
+
     if showPublicOnly:
         query = query.filter_by(public=True)                     
 
@@ -50,7 +60,7 @@ def getUserExtensions(filterByUserId: User.id | None, searchFor: str | None, sho
         query = query.filter_by(user_id=filterByUserId)
 
     if searchFor is not None:
-        query = query.filter(UserExtension.name.icontains(searchFor))
+        query = query.filter(UserExtension.name.like(searchFor))
 
     return db.session.execute(query).scalars().all()
 
@@ -359,7 +369,7 @@ def phonebook_json():
     """
 
 
-    search_string = request.args.get('search')
+    search_string = f"%{request.args.get('search')}%"
     
     query_result = getUserExtensions(filterByUserId=None,searchFor=search_string,showPublicOnly=True)
 

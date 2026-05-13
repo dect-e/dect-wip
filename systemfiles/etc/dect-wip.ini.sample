@@ -25,3 +25,8 @@ ami_host = 127.0.0.1
 ami_port = 5038
 ami_user = dect-wip
 ami_password = changeME
+
+[phonebook]
+# Mitel XSI-Personal-Directory usually searches for foobar*
+# if this option is set to true we add * at the beginning and do basically a contains(*foobar*) search not a starts with(foobar*)
+always_search_with_contains = True
