@@ -174,64 +174,151 @@ def phonebook():
     return render_template('phonebook.html.j2', default_data=fetch_default_data_for_templates(), exts=exts)
 
 
-@app.route('/myextensions/', methods=['POST', 'DELETE', 'GET'])
+@app.route('/myextensions/', methods=['GET'])
 @login_required
 def myextensions():
+    exts = getUserExtensions(filterByUserId=current_user.id, searchFor=None, showPublicOnly=False)
 
-    if request.method == 'POST':
-        req_json = request.get_json()
-        ext = UserExtension()
-
-        ext.extension = html.escape(req_json['extension'])
-        ext.password = utilities.getRandomNumber(20)
-        ext.name = html.escape(req_json['name'])
-        ext.info = html.escape(req_json['info'])
-        ext.public = bool(req_json['public'])
-        ext.token = f'{token_prefix}{utilities.getRandomNumber(token_random_count)}'
-        ext.user_id = current_user.id
-
-        if len(ext.extension) == 4 and ext.extension.isdigit() and int(ext.extension[:1]) > 0:
-            try:
-                db.session.add(ext)
-                db.session.commit()
-
-                response = make_response(jsonify( {"message": "extension added"}), 200)
-
-                poke_asterisk_soon()
-            except:
-                response = make_response(jsonify( {"message": "extension can't be added. Do you need a voucher?"}), 400)
-
-
-        else:
-            response = make_response(jsonify( {"message": "you need 4 digits"}), 400)
-        return response
-
-    if request.method == 'DELETE':
-
-        req_json = request.get_json()
-        selection = db.select(UserExtension).filter_by(extension = req_json['extension'])
-        ext = db.session.execute(selection).first()
-
-        ext = ext[0]
-
-        if ext.user_id == current_user.id:
-            db.session.delete(ext)
-            db.session.commit()
-
-            response = make_response(jsonify( {"message": "extension deleted"}), 200)
-
-            poke_asterisk_soon()
-        else:
-            response = make_response(jsonify( {"message": "extension not owned by user"}), 403)
-        return response
-
-    if request.method == 'GET':
-        exts = getUserExtensions(filterByUserId=current_user.id,searchFor=None,showPublicOnly=False)
-
-        return render_template('myextensions.html.j2', default_data=fetch_default_data_for_templates(), exts=exts)
+    return render_template('myextensions.html.j2', default_data=fetch_default_data_for_templates(), exts=exts)
 
 
 ## API V1
+
+@app.route('/api/v1/CreateUserExtension', methods=['POST'])
+@login_required
+def CreateUserExtension():
+    """
+    Create a user extension
+    ---
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - extension
+            - name
+            - info
+            - public
+          properties:
+            extension:
+              type: string
+            name:
+              type: string
+            info:
+              type: string
+            public:
+              type: boolean
+    responses:
+      200:
+        description: User extension successfully added
+    """
+    req_json = request.get_json()
+    ext = UserExtension()
+
+    ext.extension = html.escape(req_json['extension'])
+    ext.password = utilities.getRandomNumber(20)
+    ext.name = html.escape(req_json['name'])
+    ext.info = html.escape(req_json['info'])
+    ext.public = bool(req_json['public'])
+    ext.token = f'{token_prefix}{utilities.getRandomNumber(token_random_count)}'
+    ext.user_id = current_user.id
+
+    if len(ext.extension) == 4 and ext.extension.isdigit() and int(ext.extension[:1]) > 0:
+        try:
+            db.session.add(ext)
+            db.session.commit()
+
+            response = make_response(jsonify( {"message": "extension added"}), 200)
+
+            poke_asterisk_soon()
+        except:
+            response = make_response(jsonify( {"message": "extension can't be added. Do you need a voucher?"}), 400)
+
+    else:
+        response = make_response(jsonify( {"message": "you need 4 digits"}), 400)
+    return response
+
+@app.route('/api/v1/DeleteUserExtension', methods=['POST'])
+@login_required
+def DeleteUserExtension():
+    """
+    Delete a user extension
+    ---
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - extension
+          properties:
+            extension:
+              type: string
+    responses:
+      200:
+        description: User extension successfully deleted
+    """
+    req_json = request.get_json()
+    selection = db.select(UserExtension).filter_by(extension = req_json['extension'])
+    ext = db.session.execute(selection).first()
+
+    ext = ext[0]
+
+    if ext.user_id == current_user.id:
+        db.session.delete(ext)
+        db.session.commit()
+
+        response = make_response(jsonify( {"message": "extension deleted"}), 200)
+
+        poke_asterisk_soon()
+    else:
+        response = make_response(jsonify( {"message": "extension not owned by user"}), 403)
+    return response
+
+@app.route('/api/v1/GetUserExtensions', methods=['GET'])
+@login_required
+def GetUserExtensions():
+    """
+    Get all extensions of the current user
+    ---
+    responses:
+      200:
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                description: user name
+              extension:
+                type: string
+              token:
+                type: string
+              password:
+                type: string
+              info:
+                type: string
+    """
+    exts = [
+        {
+            "name": ext.name,
+            "extension": ext.extension,
+            "token": ext.token,
+            "password": ext.password,
+            "info": ext.info,
+        }
+        for ext in getUserExtensions(filterByUserId=current_user.id, searchFor=None, showPublicOnly=False)
+    ]
+    response = make_response(jsonify(exts), 200)
+    return response
 
 # TODO: change <token> to POST Parameter
 # TODO: fix 500 server error if no extensions is found

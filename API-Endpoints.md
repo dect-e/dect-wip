@@ -31,9 +31,19 @@ returns HTML-Phonebook for User
 
 `/myextensions/`
 
-[POST] - add extenstion
-[DELETE] - delete extenstion
 [GET] - show WebUI
+
+`/api/v1/GetUserExtensions`
+
+[GET] - get users extensions
+
+`/api/v1/CreateUserExtension`
+
+[POST] - add extenstion
+
+`/api/v1/DeleteUserExtension`
+
+[POST] - delete extenstion
 
 `/api/v1/GetUserExtensionByToken/<token>`
 
