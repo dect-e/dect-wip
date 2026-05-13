@@ -27,7 +27,7 @@ def return_phonebook(caller):
     search_index = int(search_index)-1 # let search_index start at 0 not 1
     search_results_count = int(request.args.get('results'))
 
-    if config.getboolean('phonebook','always_search_with_contains'):
+    if always_search_with_contains:
         if not search_string.startswith('*'):
             print(f'config.ini phonebook always_search_with_contains is true --> converting {search_string} to *{search_string}')
             search_string = f'*{search_string}'
@@ -51,12 +51,26 @@ def return_phonebook(caller):
 
     return render_template_string(xsi_template, names_and_extensions=names_and_extensions)
 
+def init(config_path):
+
+    # setup global config
+
+    global always_search_with_contains
+
+    config.read(config_path)
+    always_search_with_contains = config.getboolean('phonebook', 'always_search_with_contains')
+
 @click.command()
 @click.option('--config', 'config_path', envvar='CONFIG', default='/etc/dect-wip.ini', help='optional config location')
-def init(config_path):
+def init_dev(config_path):
     # TODO: refactor config.ini and ENV
-    config.read(config_path)
+    init(config_path)
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=True)
+
+def init_wsgi():
+    config_path = os.getenv('CONFIG', '/etc/dect-wip.ini')
+    init(config_path)
+    return app
 
 if __name__ == '__main__':
     init()
