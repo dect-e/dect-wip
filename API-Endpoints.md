@@ -81,7 +81,3 @@ Listen-Port: 8081
 Connect the User to his real Extenstion.
 Change TMP-Credentials to User-Credentials in OMM.
 Uses Token to find User-Extenstion.
-
-`/trigger/`
-
-Create TMP-Extenstions for all Unbound Dect-Handsets in OMM

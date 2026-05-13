@@ -451,11 +451,6 @@ def trigger():
         finally:
             client.logoff()
 
-def triggerOmm():
-    response = requests.get(f"{ommsync_url}/trigger")
-    return #TODO: remove
-
-
 
 def fetch_default_data_for_templates():
     data = {
@@ -474,7 +469,7 @@ def init(config_path):
 
     # setup global config
 
-    global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count, show_voucher, dectwip_config, ommsync_url
+    global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count, show_voucher, dectwip_config
 
     print(f'Using config: {config_path}')
 
@@ -514,8 +509,6 @@ def init(config_path):
     if os.getenv('FLASK_SECRET_KEY_PATH') else config['flask'].get('secret_key')
     )
 
-    ommsync_url = os.getenv('OMMSYNC_URL', 'http://127.0.0.1:8081')
-
     # autogenerate secret_key if not provided
     if not app.secret_key:
         app.secret_key = utilities.getRandomStr(16)
@@ -534,7 +527,6 @@ def init(config_path):
 
     scheduler.init_app(app)
     scheduler.add_job(id='trigger', func=trigger, trigger='interval', seconds=5)
-    scheduler.add_job(id='triggerOmm', func=triggerOmm, trigger='interval', seconds=5)
     scheduler.start()
 
     app.add_template_filter(utilities.format_token, 'format_token')
