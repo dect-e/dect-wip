@@ -9,8 +9,8 @@ port = int(os.getenv('DECT_WIP_PHONEBOOK_PORT', '8082'))
 app = Flask(__name__)
 config = configparser.ConfigParser()
 
-xsi_template = """"<?xml version="1.0" encoding="UTF-8"?>
-<Personal xmlns="http://schema.broadsoft.com/xsi”>
+xsi_template = """<?xml version="1.0" encoding="UTF-8"?>
+<Personal xmlns="http://schema.broadsoft.com/xsi">
 {% for entry in names_and_extensions: %}
 <entry>
 <name>{{entry["name"]}}</name>
