@@ -16,6 +16,28 @@ We decided to opensource it as an easy-to-setup software after some requests.
     - dect-wip-ommsync checks for newly paired handsets and creates temporary voip accounts for calling the self-registration code.
     - dect-wip-mitel-phonebook provides an endpoint for mitel dect handsets to lookup phonebook entries 
 
+## Configuration and Environment Variables
+The main config `dect-wip.ini` is in `/etc/dect-wip.ini` by default.
+
+Config location can be overridden with env-variable `CONFIG_PATH`(WSGI/Dev-Mode) or commandline argument `--config-file` (DEV-Mode).
+
+All settings in `dect-wip.ini` can be overridden via env-variable (in all caps) in the following order:
+- `FROM_FILE_{SECTION}_{KEY}`
+- `{SECTION}_{KEY}`
+- Config-File
+
+For example:
+- `FROM_FILE_EVENT_TOKEN_PREFIX`
+- `EVENT_TOKEN_PREFIX`
+```
+[event]
+token_prefix = 01990
+```
+
+The prefix `FROM_FILE_` will read the contents of that file and uses it as variable value.
+
+Values specified via env-variables can be omitted in `dect-wip.ini`. A config-file need to be present, but it can be empty.
+
 ## how to contribute
 - This is a fun-project! We don't get paid for this and we might have higher response times
 - Fetch a unassigned issue, ask if you don't know anything or are unsure
