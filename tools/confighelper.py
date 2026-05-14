@@ -29,6 +29,10 @@ class DectWIPConfig():
 
         self.config.read(config_path)
 
+        # [gunicorn]
+        self.gunicorn_accesslogfile = self.__get_config_with_env_override('gunicorn', 'accesslogfile')
+        self.gunicorn_errorlogfile = self.__get_config_with_env_override('gunicorn', 'errorlogfile')
+
         # [Asterisk]
         self.asterisk_pjsip_wizard_user_conf = self.__get_config_with_env_override('asterisk', 'pjsip_wizard_user_conf')
         self.asterisk_pjsip_wizard_temp_conf = self.__get_config_with_env_override('asterisk', 'pjsip_wizard_temp_conf')

@@ -1,3 +1,8 @@
+[gunicorn]
+# - is stdout
+accesslogfile = -
+errorlogfile = -
+
 [flask]
 # LEAVE EMPTY dect-wip generates secret key on first startup  
 secret_key = 
