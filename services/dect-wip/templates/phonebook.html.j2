@@ -33,9 +33,9 @@
 
             {% for ext in exts %}
                 <tr>
-                    <td>{{ext.extension}}</td>
-                    <td>{{ext.name}}</td>
-                    <td>{{ext.info}}</td>
+                    <td>{{ ext.extension | e }}</td>
+                    <td>{{ ext.name | e }}</td>
+                    <td>{{ ext.info | e }}</td>
                 </tr>
             {% endfor %}
 
