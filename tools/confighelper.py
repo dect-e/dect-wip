@@ -72,6 +72,8 @@ class DectWIPConfig():
         # [ommsync] --- MicroService
         self.ommsync_listen_ip = self.__get_config_with_env_override('ommsync', 'listen_ip')
         self.ommsync_port = int(self.__get_config_with_env_override('ommsync', 'port'))
+        self.ommsync_enable_subscription = str_to_bool(self.__get_config_with_env_override('ommsync', 'enable_subscription'))
+        self.ommsync_auth_code = self.__get_config_with_env_override('ommsync', 'auth_code')
 
         # [omm]
         self.omm_ip = self.__get_config_with_env_override('omm', 'ip')

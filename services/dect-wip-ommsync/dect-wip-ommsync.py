@@ -11,8 +11,6 @@ import click
 from datetime import datetime
 from tools.confighelper import DectWIPConfig
 
-print('Make sure Subscription and Auto-Create are enabled')
-
 lock = Lock()
 app = Flask(__name__)
 scheduler = APScheduler()
@@ -77,6 +75,20 @@ def makeTemps():
             response = requests.post(f"http://{config.dect_wip_internal_ip}:{config.dect_wip_port}/api/v1/AddTempExtensionToDB", json=data)
             if response.status_code != 200:
                 raise RuntimeError(f"adding temp extension to db failed: {response.status_code} {response.text}")
+
+@scheduler.task('interval', id='enable_subscription', seconds=15, next_run_time=datetime.now(), max_instances=1)
+def enable_subscription():
+    with lock:
+        if config.ommsync_enable_subscription:
+            if client.get_dect_auth_code() != config.ommsync_auth_code:
+                print(f"setting auth code to {config.ommsync_auth_code}")
+                client.set_dect_auth_code(config.ommsync_auth_code)
+            if not client.get_device_auto_create():
+                print("enabling device auto creation on OMM")
+                client.set_device_auto_create(True)
+            if client.get_dect_subscription_mode() != 'Configured':
+                print("enabling subscription on OMM")
+                client.set_dect_subscription_mode('Configured')
 
 def init(config_path):
 
