@@ -525,7 +525,7 @@ lock_asterisk = Lock()
 
 # generates Asterisk config
 def writePjsip():
-    if lock_asterisk.locked():
+    if not lock_asterisk.locked():
         raise RuntimeError("the writePjsip function assumes that the asterisk lock is already acquired by the calling function")
 
     query_result = db.session.execute(db.select(UserExtension)).all()
