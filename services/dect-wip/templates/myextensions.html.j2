@@ -47,13 +47,13 @@
 
         {% for ext in exts %}
             <tr>
-                <td>{{ext.name}}</td>
-                <td>{{ext.extension}}</td>
-                <td>{{ext.token | format_token}}</td>
-                <td>{{ext.password}}</td>
-                <td>{{ext.info}}</td>
+                <td>{{ ext.name | e }}</td>
+                <td>{{ ext.extension | e }}</td>
+                <td>{{ ext.token | e | format_token }}</td>
+                <td>{{ ext.password | e }}</td>
+                <td>{{ ext.info | e }}</td>
             <td>
-                    <button type="submit" class="btn btn-danger" onclick="delEntry('{{ext.extension}}')">
+                    <button type="submit" class="btn btn-danger" onclick="delEntry('{{ ext.extension | e }}')">
                         <i class="bi bi-trash"></i>
                     </button>
                 </td>

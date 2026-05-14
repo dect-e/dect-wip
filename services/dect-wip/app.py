@@ -229,10 +229,10 @@ def CreateUserExtension():
     req_json = request.get_json()
     ext = UserExtension()
 
-    ext.extension = html.escape(req_json['extension'])
+    ext.extension = req_json['extension']
     ext.password = utilities.getRandomNumber(20)
-    ext.name = html.escape(req_json['name'])
-    ext.info = html.escape(req_json['info'])
+    ext.name = req_json['name']
+    ext.info = req_json['info']
     ext.public = bool(req_json['public'])
     ext.token = f'{token_prefix}{utilities.getRandomNumber(token_random_count)}'
     ext.user_id = current_user.id
