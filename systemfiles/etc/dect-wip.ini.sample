@@ -26,7 +26,18 @@ ami_port = 5038
 ami_user = dect-wip
 ami_password = changeME
 
-[phonebook]
+[dect-wip]
+listen_ip = 0.0.0.0
+internal_ip = 127.0.0.1
+port = 8080
+
+[mitelphonebook]
 # Mitel XSI-Personal-Directory usually searches for foobar*
 # if this option is set to true we add * at the beginning and do basically a contains(*foobar*) search not a starts with(foobar*)
 always_search_with_contains = True
+listen_ip = 0.0.0.0
+port = 8082
+
+[ommsync]
+listen_ip = 0.0.0.0
+port = 8081
