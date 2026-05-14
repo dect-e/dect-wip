@@ -131,8 +131,8 @@
             extension: extension,
         };
 
-        fetch(`${window.origin}/myextensions/`, {
-            method: "DELETE",
+        fetch(`${window.origin}/api/v1/DeleteUserExtension`, {
+            method: "POST",
             credentials: "include",
             body: JSON.stringify(entry),
             cache: "no-cache",
@@ -161,7 +161,7 @@
             public: public.checked
         };
 
-        fetch(`${window.origin}/myextensions/`, {
+        fetch(`${window.origin}/api/v1/CreateUserExtension`, {
             method: "POST",
             credentials: "include",
             body: JSON.stringify(entry),

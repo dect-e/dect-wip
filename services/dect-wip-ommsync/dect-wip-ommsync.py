@@ -1,17 +1,20 @@
 import configparser
 import mitel_ommclient2
 from flask import Flask, request, jsonify, make_response
+from flask_apscheduler import APScheduler
 import requests
 import namegenerator
 import utilities
 from threading import Lock
 import click
 import os
+from datetime import datetime
 
 print('Make sure Subscription and Auto-Create are enabled')
 
 lock = Lock()
 app = Flask(__name__)
+scheduler = APScheduler()
 
 @app.route('/connect/', methods=['POST'])
 def connect():
@@ -49,8 +52,7 @@ def connect():
         response = make_response(jsonify( {"message": "extension added"}), 200)
     return response
 
-
-@app.route('/trigger/', methods=['GET'])
+@scheduler.task('interval', id='makeTemps', seconds=5, next_run_time=datetime.now(), max_instances=1)
 def makeTemps():
     print("lets go")
 
@@ -73,12 +75,11 @@ def makeTemps():
                 "uid": newuser.uid,
                 "ppn": device.ppn
             }
-    
+
             print(data)
     
             response = requests.post(f"http://{dect_wip_ip}/api/v1/AddTempExtensionToDB", json=data)
             print(response.text)
-    return "success", 200
 
 def init(config_path):
 
@@ -111,6 +112,9 @@ def init(config_path):
         raise RuntimeError("Connection to OMM timed out") from e
 
     dect_wip_ip = os.getenv('DECT_WIP_IP', '127.0.0.1:8080')
+
+    scheduler.init_app(app)
+    scheduler.start()
 
 
 @click.command()

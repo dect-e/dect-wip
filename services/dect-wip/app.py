@@ -11,6 +11,8 @@ from flask_login import LoginManager, login_user, login_required, logout_user, c
 import click
 import requests
 from flasgger import Swagger
+from threading import Lock
+from datetime import datetime
 
 from database import db # database object
 from database import UserExtension,TempExtension,User # database models
@@ -182,60 +184,151 @@ def phonebook():
     return render_template('phonebook.html.j2', default_data=fetch_default_data_for_templates(), exts=exts)
 
 
-@app.route('/myextensions/', methods=['POST', 'DELETE', 'GET'])
+@app.route('/myextensions/', methods=['GET'])
 @login_required
 def myextensions():
+    exts = getUserExtensions(filterByUserId=current_user.id, searchFor=None, showPublicOnly=False)
 
-    if request.method == 'POST':
-        req_json = request.get_json()
-        ext = UserExtension()
-
-        ext.extension = html.escape(req_json['extension'])
-        ext.password = utilities.getRandomNumber(20)
-        ext.name = html.escape(req_json['name'])
-        ext.info = html.escape(req_json['info'])
-        ext.public = bool(req_json['public'])
-        ext.token = f'{token_prefix}{utilities.getRandomNumber(token_random_count)}'
-        ext.user_id = current_user.id
-
-        if len(ext.extension) == 4 and ext.extension.isdigit() and int(ext.extension[:1]) > 0:
-            try:
-                db.session.add(ext)
-                db.session.commit()
-
-                response = make_response(jsonify( {"message": "extension added"}), 200)
-            except:
-                response = make_response(jsonify( {"message": "extension can't be added. Do you need a voucher?"}), 400)
-
-
-        else:
-            response = make_response(jsonify( {"message": "you need 4 digits"}), 400)
-        return response
-
-    if request.method == 'DELETE':
-
-        req_json = request.get_json()
-        selection = db.select(UserExtension).filter_by(extension = req_json['extension'])
-        ext = db.session.execute(selection).first()
-
-        ext = ext[0]
-
-        if ext.user_id == current_user.id:
-            db.session.delete(ext)
-            db.session.commit()
-
-            response = make_response(jsonify( {"message": "extension deleted"}), 200)
-        else:
-            response = make_response(jsonify( {"message": "extension not owned by user"}), 403)
-        return response
-
-    if request.method == 'GET':
-        exts = getUserExtensions(filterByUserId=current_user.id,searchFor=None,showPublicOnly=False)
-
-        return render_template('myextensions.html.j2', default_data=fetch_default_data_for_templates(), exts=exts)
+    return render_template('myextensions.html.j2', default_data=fetch_default_data_for_templates(), exts=exts)
 
 
 ## API V1
+
+@app.route('/api/v1/CreateUserExtension', methods=['POST'])
+@login_required
+def CreateUserExtension():
+    """
+    Create a user extension
+    ---
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - extension
+            - name
+            - info
+            - public
+          properties:
+            extension:
+              type: string
+            name:
+              type: string
+            info:
+              type: string
+            public:
+              type: boolean
+    responses:
+      200:
+        description: User extension successfully added
+    """
+    req_json = request.get_json()
+    ext = UserExtension()
+
+    ext.extension = html.escape(req_json['extension'])
+    ext.password = utilities.getRandomNumber(20)
+    ext.name = html.escape(req_json['name'])
+    ext.info = html.escape(req_json['info'])
+    ext.public = bool(req_json['public'])
+    ext.token = f'{token_prefix}{utilities.getRandomNumber(token_random_count)}'
+    ext.user_id = current_user.id
+
+    if len(ext.extension) == 4 and ext.extension.isdigit() and int(ext.extension[:1]) > 0:
+        try:
+            db.session.add(ext)
+            db.session.commit()
+
+            response = make_response(jsonify( {"message": "extension added"}), 200)
+
+            schedule_asterisk_configuration_update()
+        except:
+            response = make_response(jsonify( {"message": "extension can't be added. Do you need a voucher?"}), 400)
+
+    else:
+        response = make_response(jsonify( {"message": "you need 4 digits"}), 400)
+    return response
+
+@app.route('/api/v1/DeleteUserExtension', methods=['POST'])
+@login_required
+def DeleteUserExtension():
+    """
+    Delete a user extension
+    ---
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - extension
+          properties:
+            extension:
+              type: string
+    responses:
+      200:
+        description: User extension successfully deleted
+    """
+    req_json = request.get_json()
+    selection = db.select(UserExtension).filter_by(extension = req_json['extension'])
+    ext = db.session.execute(selection).first()
+
+    ext = ext[0]
+
+    if ext.user_id == current_user.id:
+        db.session.delete(ext)
+        db.session.commit()
+
+        response = make_response(jsonify( {"message": "extension deleted"}), 200)
+
+        schedule_asterisk_configuration_update()
+    else:
+        response = make_response(jsonify( {"message": "extension not owned by user"}), 403)
+    return response
+
+@app.route('/api/v1/GetUserExtensions', methods=['GET'])
+@login_required
+def GetUserExtensions():
+    """
+    Get all extensions of the current user
+    ---
+    responses:
+      200:
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                description: user name
+              extension:
+                type: string
+              token:
+                type: string
+              password:
+                type: string
+              info:
+                type: string
+    """
+    exts = [
+        {
+            "name": ext.name,
+            "extension": ext.extension,
+            "token": ext.token,
+            "password": ext.password,
+            "info": ext.info,
+        }
+        for ext in getUserExtensions(filterByUserId=current_user.id, searchFor=None, showPublicOnly=False)
+    ]
+    response = make_response(jsonify(exts), 200)
+    return response
 
 # TODO: change <token> to POST Parameter
 # TODO: fix 500 server error if no extensions is found
@@ -341,6 +434,8 @@ def AddTempExtensionToDB():
     
     db.session.add(ext)
     db.session.commit()
+
+    schedule_asterisk_configuration_update()
     
     return "success", 200
 
@@ -419,12 +514,19 @@ def ClaimExtensionByVoucher():
     )
     db.session.commit()
 
+    schedule_asterisk_configuration_update()
+
     #TODO: add number of extensions added
     
     return "success", 200
 
 
+lock_asterisk = Lock()
+
+# generates Asterisk config
 def writePjsip():
+    if lock_asterisk.locked():
+        raise RuntimeError("the writePjsip function assumes that the asterisk lock is already acquired by the calling function")
 
     query_result = db.session.execute(db.select(UserExtension)).all()
     userExts = [ x[0] for x in query_result ] 
@@ -434,37 +536,39 @@ def writePjsip():
     tempExts = [ x[0] for x in query_result ] 
     utilities.pjsipConfig(pjsip_wizard_temp_conf, tempExts, "temp_dect")
 
-def trigger():
-    with app.app_context():
-        writePjsip()
+# Generates new Asterisk configs and pokes Asterisk to reload configs
+@scheduler.task('interval', id='update_asterisk_configuration', seconds=300, next_run_time=datetime.now(), max_instances=1)  # every 5min, is called immediately on changes in the db
+def update_asterisk_configuration():
+    with lock_asterisk:
+        with app.app_context():
+            writePjsip()
 
-        from asterisk.ami import AMIClient, SimpleAction
-        client = AMIClient(
-            address=dectwip_config['asterisk']['ami']['host'],
-            port=dectwip_config['asterisk']['ami']['port']
-        )
-        client.login(
-            username=dectwip_config['asterisk']['ami']['user'],
-            secret=dectwip_config['asterisk']['ami']['password']
-        )
-        try:
-            action = SimpleAction('Command', Command='module reload res_pjsip_config_wizard.so')
-            result = client.send_action(action)
-            response = result.response if hasattr(result, 'response') else result
+            from asterisk.ami import AMIClient, SimpleAction
+            client = AMIClient(
+                address=dectwip_config['asterisk']['ami']['host'],
+                port=dectwip_config['asterisk']['ami']['port']
+            )
+            client.login(
+                username=dectwip_config['asterisk']['ami']['user'],
+                secret=dectwip_config['asterisk']['ami']['password']
+            )
+            try:
+                action = SimpleAction('Command', Command='module reload res_pjsip_config_wizard.so')
+                result = client.send_action(action)
+                response = result.response if hasattr(result, 'response') else result
 
-            status = getattr(response, 'status', '').lower()
-            output = response.keys.get('Output', '') if isinstance(getattr(response, 'keys', None), dict) else ''
+                status = getattr(response, 'status', '').lower()
+                output = response.keys.get('Output', '') if isinstance(getattr(response, 'keys', None), dict) else ''
 
-            if not (status == 'success' and 'reloaded successfully' in output.lower()):
-                print(f"PJSIP reload failed — status: {status}, output: {output}")
-                raise RuntimeError(f"PJSIP reload failed: {output or status}")
-        finally:
-            client.logoff()
+                if not (status == 'success' and 'reloaded successfully' in output.lower()):
+                    print(f"PJSIP reload failed — status: {status}, output: {output}")
+                    raise RuntimeError(f"PJSIP reload failed: {output or status}")
+            finally:
+                client.logoff()
 
-def triggerOmm():
-    response = requests.get(f"{ommsync_url}/trigger")
-    return #TODO: remove
-
+# schedules a task to poke asterisk soon^TM
+def schedule_asterisk_configuration_update():
+    scheduler.modify_job('update_asterisk_configuration', next_run_time=datetime.now())
 
 
 def fetch_default_data_for_templates():
@@ -484,7 +588,7 @@ def init(config_path):
 
     # setup global config
 
-    global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count, show_voucher, dectwip_config, ommsync_url
+    global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count, show_voucher, dectwip_config
 
     print(f'Using config: {config_path}')
 
@@ -524,8 +628,6 @@ def init(config_path):
     if os.getenv('FLASK_SECRET_KEY_PATH') else config['flask'].get('secret_key')
     )
 
-    ommsync_url = os.getenv('OMMSYNC_URL', 'http://127.0.0.1:8081')
-
     # autogenerate secret_key if not provided
     if not app.secret_key:
         app.secret_key = utilities.getRandomStr(16)
@@ -543,8 +645,6 @@ def init(config_path):
     login_manager.init_app(app)
 
     scheduler.init_app(app)
-    scheduler.add_job(id='trigger', func=trigger, trigger='interval', seconds=5)
-    scheduler.add_job(id='triggerOmm', func=triggerOmm, trigger='interval', seconds=5)
     scheduler.start()
 
     app.add_template_filter(utilities.format_token, 'format_token')
