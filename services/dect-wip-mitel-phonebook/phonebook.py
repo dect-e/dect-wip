@@ -73,4 +73,4 @@ def init_wsgi():
     return app
 
 if __name__ == '__main__':
-    init()
+    init_dev()
