@@ -5,4 +5,4 @@ echo "working in $(pwd)"
 ./_setup_venv.sh
 
 source venv/bin/activate
-gunicorn dect-wip-ommsync:init_wsgi\(\) --bind 0.0.0.0:8081
+python3 app.py

@@ -11,3 +11,4 @@ Werkzeug==2.3.7
 requests
 asterisk-ami
 flasgger
+gunicorn
