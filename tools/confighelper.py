@@ -1,5 +1,13 @@
 import os
 
+def str_to_bool(input):
+    if input.lower() in ["true", "yes", "y", "1"]:
+        return True
+    elif input.lower() in ["false", "no", "n", "0"]:
+        return False
+    else:
+        raise ValueError(f'"{input}" can no be converted to boolean')
+
 class DectWIPConfig():
     import configparser
     config = configparser.ConfigParser()
