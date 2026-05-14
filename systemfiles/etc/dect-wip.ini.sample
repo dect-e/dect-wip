@@ -4,7 +4,7 @@ accesslogfile = -
 errorlogfile = -
 
 [flask]
-# LEAVE EMPTY dect-wip generates secret key on first startup  
+# fill secret with random unguessable string
 secret_key = 
 swagger_enabled = False
 
