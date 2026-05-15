@@ -1,5 +1,13 @@
 import os
 
+def str_to_bool(input):
+    if input.lower() in ["true", "yes", "y", "1"]:
+        return True
+    elif input.lower() in ["false", "no", "n", "0"]:
+        return False
+    else:
+        raise ValueError(f'"{input}" can no be converted to boolean')
+
 class DectWIPConfig():
     import configparser
     config = configparser.ConfigParser()
@@ -64,9 +72,12 @@ class DectWIPConfig():
         # [ommsync] --- MicroService
         self.ommsync_listen_ip = self.__get_config_with_env_override('ommsync', 'listen_ip')
         self.ommsync_port = int(self.__get_config_with_env_override('ommsync', 'port'))
+        self.ommsync_enable_subscription = str_to_bool(self.__get_config_with_env_override('ommsync', 'enable_subscription'))
+        self.ommsync_auth_code = self.__get_config_with_env_override('ommsync', 'auth_code')
 
         # [omm]
         self.omm_ip = self.__get_config_with_env_override('omm', 'ip')
         self.omm_port = int(self.__get_config_with_env_override('omm', 'port'))
+        self.omm_use_ssl = str_to_bool(self.__get_config_with_env_override('omm', 'use_ssl'))
         self.omm_username = self.__get_config_with_env_override('omm', 'username')
         self.omm_password = self.__get_config_with_env_override('omm', 'password')

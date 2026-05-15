@@ -11,19 +11,13 @@ import click
 from datetime import datetime
 from tools.confighelper import DectWIPConfig
 
-print('Make sure Subscription and Auto-Create are enabled')
-
 lock = Lock()
 app = Flask(__name__)
 scheduler = APScheduler()
 
 @app.route('/connect/', methods=['POST'])
 def connect():
-
-    print('obtaining lock')
     with lock:
-        print('lock obtained')
-
         req_json = request.get_json()
 
         user_extension = requests.get(f"http://{config.dect_wip_internal_ip}:{config.dect_wip_port}/api/v1/GetUserExtensionByToken/{req_json['token']}").json()
@@ -31,45 +25,44 @@ def connect():
         extension = user_extension['extension']
         password = user_extension['password']
         displayname = user_extension['name']
-    
+
+        # TODO get temp_extension from omm
         temp_extenison = requests.get(f"http://{config.dect_wip_internal_ip}:{config.dect_wip_port}/api/v1/GetTempExtensionByCallerid/{req_json['callerid']}").json()
-    
-        ppn = temp_extenison['ppn']
-        uid = temp_extenison['uid']
-    
-        print(ppn)
-        print(uid)
-    
-        client.detach_user_device(uid,ppn)
-    
-        newuser = client.create_user(extension)
-        client.set_user_sipauth(newuser.uid, extension, password)
-        client.set_user_name(newuser.uid, displayname)
-        
-        print(client.attach_user_device(int(newuser.uid), ppn))
-        # no implemented in current ommclient ...
-        #client.delete_user(uid)
-    
+
+        # deletes existing users with the same extension
+        # this also detaches the (dynamically linked) device
+        for user in client.find_users(lambda user: user.num == extension):
+            print(f"deleting uid {user.uid} (duplicate of extension {extension})")
+            client.delete_user(user.uid)
+
+        new_user = client.create_user(extension)
+        client.set_user_sipauth(new_user.uid, extension, password)
+        client.set_user_name(new_user.uid, displayname)
+
+        print(f"detaching ppn {temp_extenison['ppn']} from uid {temp_extenison['uid']}")
+        client.detach_user_device(temp_extenison['uid'], temp_extenison['ppn'])
+
+        print(f"deleting uid {temp_extenison['uid']}")
+        client.delete_user(temp_extenison['uid'])
+
+        print(f"attaching ppn {temp_extenison['ppn']} to uid {new_user.uid}, extension {extension}")
+        client.attach_user_device(int(new_user.uid), temp_extenison['ppn'])
+
         response = make_response(jsonify( {"message": "extension added"}), 200)
     return response
 
 @scheduler.task('interval', id='makeTemps', seconds=5, next_run_time=datetime.now(), max_instances=1)
 def makeTemps():
-    print("lets go")
-
-    print('obtaining lock')
     with lock:
-        print('lock obtained')
-    
         for device in list(client.find_devices(lambda d: d.relType == mitel_ommclient2.types.PPRelTypeType("Unbound"))):
             extension = 't_' + namegenerator.generate_name() + utilities.getRandomNumber(4)
             password = utilities.getRandomStr(20)
-    
+
             newuser = client.create_user(extension)
             client.set_user_sipauth(newuser.uid, extension, password)
             client.set_user_name(newuser.uid, extension[2:21])
             client.attach_user_device(int(newuser.uid), int(device.ppn))
-    
+
             data = {
                 "extension": extension,
                 "password": password,
@@ -77,10 +70,25 @@ def makeTemps():
                 "ppn": device.ppn
             }
 
-            print(data)
-    
+            print("new temp extension created", data)
+
             response = requests.post(f"http://{config.dect_wip_internal_ip}:{config.dect_wip_port}/api/v1/AddTempExtensionToDB", json=data)
-            print(response.text)
+            if response.status_code != 200:
+                raise RuntimeError(f"adding temp extension to db failed: {response.status_code} {response.text}")
+
+@scheduler.task('interval', id='enable_subscription', seconds=15, next_run_time=datetime.now(), max_instances=1)
+def enable_subscription():
+    with lock:
+        if config.ommsync_enable_subscription:
+            if client.get_dect_auth_code() != config.ommsync_auth_code:
+                print(f"setting auth code to {config.ommsync_auth_code}")
+                client.set_dect_auth_code(config.ommsync_auth_code)
+            if not client.get_device_auto_create():
+                print("enabling device auto creation on OMM")
+                client.set_device_auto_create(True)
+            if client.get_dect_subscription_mode() != 'Configured':
+                print("enabling subscription on OMM")
+                client.set_dect_subscription_mode('Configured')
 
 def init(config_path):
 
@@ -94,6 +102,7 @@ def init(config_path):
         client = mitel_ommclient2.OMMClient2(
             host=config.omm_ip,
             port=config.omm_port,
+            use_ssl=config.omm_usessl,
             username=config.omm_username,
             password=config.omm_password,
             ommsync=True
