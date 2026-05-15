@@ -1,4 +1,4 @@
-mitel_ommclient2
+mitel_ommclient2 @ git+https://codeberg.org/TilCreator/mitel_ommclient2.git@main
 rsa
 flask
 flask-apscheduler

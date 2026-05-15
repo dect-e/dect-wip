@@ -76,5 +76,6 @@ class DectWIPConfig():
         # [omm]
         self.omm_ip = self.__get_config_with_env_override('omm', 'ip')
         self.omm_port = int(self.__get_config_with_env_override('omm', 'port'))
+        self.omm_use_ssl = str_to_bool(self.__get_config_with_env_override('omm', 'use_ssl'))
         self.omm_username = self.__get_config_with_env_override('omm', 'username')
         self.omm_password = self.__get_config_with_env_override('omm', 'password')

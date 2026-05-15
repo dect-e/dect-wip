@@ -17,7 +17,11 @@ show_voucher = False
 
 [omm]
 ip = 10.10.10.10
-port = 12621
+port = 12622
+# To use SSL the ports needs to be set to 12622
+# SSL is supported on almost every OMM version
+# OMM version >9 does not support unencrypted connection
+use_ssl = true
 username = ade
 password = ade
 
