@@ -3,19 +3,18 @@ import pprint
 import utilities
 import argon2
 import os
-import html
 from datetime import timedelta
 from flask import Flask, render_template, request, jsonify, make_response, Response, redirect, abort
 from flask_apscheduler import APScheduler
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 import click
-import requests
 from flasgger import Swagger
 from threading import Lock
 from datetime import datetime
-
 from database import db # database object
 from database import UserExtension,TempExtension,User # database models
+from tools.confighelper import DectWIPConfig
+
 scheduler = APScheduler()
 login_manager = LoginManager()
 
@@ -24,10 +23,6 @@ if(instance_path):
     app = Flask(__name__, instance_path=instance_path)
 else:
     app = Flask(__name__)
-
-# config
-
-application_config = {}
 
 ## LoginTools
 
@@ -234,7 +229,7 @@ def CreateUserExtension():
     ext.name = req_json['name']
     ext.info = req_json['info']
     ext.public = bool(req_json['public'])
-    ext.token = f'{token_prefix}{utilities.getRandomNumber(token_random_count)}'
+    ext.token = f'{config.event_token_prefix}{utilities.getRandomNumber(config.event_token_random_count)}'
     ext.user_id = current_user.id
 
     if len(ext.extension) == 4 and ext.extension.isdigit() and int(ext.extension[:1]) > 0:
@@ -530,11 +525,11 @@ def writePjsip():
 
     query_result = db.session.execute(db.select(UserExtension)).all()
     userExts = [ x[0] for x in query_result ] 
-    utilities.pjsipConfig(pjsip_wizard_user_conf, userExts, "user")
+    utilities.pjsipConfig(config.asterisk_pjsip_wizard_user_conf, userExts, "user")
 
     query_result = db.session.execute(db.select(TempExtension)).all()
     tempExts = [ x[0] for x in query_result ] 
-    utilities.pjsipConfig(pjsip_wizard_temp_conf, tempExts, "temp_dect")
+    utilities.pjsipConfig(config.asterisk_pjsip_wizard_temp_conf, tempExts, "temp_dect")
 
 # Generates new Asterisk configs and pokes Asterisk to reload configs
 @scheduler.task('interval', id='update_asterisk_configuration', seconds=300, next_run_time=datetime.now(), max_instances=1)  # every 5min, is called immediately on changes in the db
@@ -545,12 +540,12 @@ def update_asterisk_configuration():
 
             from asterisk.ami import AMIClient, SimpleAction
             client = AMIClient(
-                address=dectwip_config['asterisk']['ami']['host'],
-                port=dectwip_config['asterisk']['ami']['port']
+                address=config.asterisk_ami_host,
+                port=config.asterisk_ami_port
             )
             client.login(
-                username=dectwip_config['asterisk']['ami']['user'],
-                secret=dectwip_config['asterisk']['ami']['password']
+                username=config.asterisk_ami_user,
+                secret=config.asterisk_ami_password
             )
             try:
                 action = SimpleAction('Command', Command='module reload res_pjsip_config_wizard.so')
@@ -574,8 +569,8 @@ def schedule_asterisk_configuration_update():
 def fetch_default_data_for_templates():
     data = {
         'current_user': current_user,
-        'event_name': event_name,
-        'show_voucher': show_voucher
+        'event_name': config.event_name,
+        'show_voucher': config.event_show_voucher
         }
     print(data)
 
@@ -585,56 +580,14 @@ def fetch_default_data_for_templates():
     return data
 
 def init(config_path):
-
     # setup global config
 
-    global pjsip_wizard_user_conf, pjsip_wizard_temp_conf, event_name, token_prefix, token_random_count, show_voucher, dectwip_config
+    global config
 
-    print(f'Using config: {config_path}')
-
-    config = configparser.ConfigParser()
-    config.read(config_path)
-
-    pjsip_wizard_user_conf = config['asterisk'].get('pjsip_wizard_user_conf')
-    pjsip_wizard_temp_conf = config['asterisk'].get('pjsip_wizard_temp_conf')
-    ami_pw = (
-    open(os.getenv('AMI_PW_PATH')).read().strip() if os.getenv('AMI_PW_PATH') else config['asterisk'].get('ami_password')
-    )
-    dectwip_config = {
-        'asterisk': {
-            'ami': {
-                'host': config['asterisk'].get('ami_host'),
-                'port': int(config['asterisk'].get('ami_port')),
-                'user': config['asterisk'].get('ami_user'),
-                'password': ami_pw
-                
-            }
-        },
-        'flask': { 
-            'swagger': {
-                'enabled': config['flask'].get('swagger_enabled', 'False')
-            }
-        }
-    }
-
-    event_name = config['event'].get('name', 'unnamed Event')
-    token_prefix = config['event'].get('token_prefix', '01990')
-    token_random_count = int(config['event'].get('token_random_count', '8'))
-    show_voucher = config['event'].get('show_voucher', 'True')
+    config = DectWIPConfig(config_path=config_path)
 
     # init flask
-    app.secret_key = (
-    open(os.getenv('FLASK_SECRET_KEY_PATH')).read().strip() 
-    if os.getenv('FLASK_SECRET_KEY_PATH') else config['flask'].get('secret_key')
-    )
-
-    # autogenerate secret_key if not provided
-    if not app.secret_key:
-        app.secret_key = utilities.getRandomStr(16)
-        print(f'generated secret_key: {app.secret_key}')
-        config.set('flask', 'secret_key', app.secret_key)
-        with open(config_path, 'w') as configfile:
-            config.write(configfile)
+    app.secret_key = config.flask_secret_key
 
     # database
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.sqlite3'
@@ -650,20 +603,19 @@ def init(config_path):
     app.add_template_filter(utilities.format_token, 'format_token')
 
     # run swagger
-    if dectwip_config['flask']['swagger']['enabled'] == 'True':
+    if config.flask_swagger_enable == 'True':
         print('enabling Swagger - /apidocs/')
         swagger = Swagger(app)
 
 @click.command()
-@click.option('--config', 'config_path', envvar='CONFIG', default='/etc/dect-wip.ini', help='optional config location')
+@click.option('--config', 'config_path', envvar='CONFIG_PATH', default='/etc/dect-wip.ini', help='optional config location')
 def init_dev(config_path):
     init(config_path)
     # run webserver/app
-    app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=True)
+    app.run(host=config.dect_wip_listen_ip, port=config.dect_wip_port, debug=False, use_reloader=True)
 
 def init_wsgi():
-    config_path = os.getenv('CONFIG', '/etc/dect-wip.ini')
-    init(config_path)
+    init(os.environ.get('CONFIG_PATH', '/etc/dect-wip.ini'))
     return app
 
 if __name__ == "__main__":

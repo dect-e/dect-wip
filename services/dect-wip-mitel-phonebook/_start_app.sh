@@ -1,13 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo "working in $(pwd)"
 
-if [ ! -d "venv/" ]; then
-  python3 -mvenv venv
-  source venv/bin/activate
-  pip3 install --upgrade pip
-  pip3 install -r requirements.txt
-fi
+./_setup_venv.sh
 
 source venv/bin/activate
-python3 phonebook.py
+gunicorn phonebook:init_wsgi\(\)

@@ -1,4 +1,5 @@
-import configparser
+import os
+
 import mitel_ommclient2
 from flask import Flask, request, jsonify, make_response
 from flask_apscheduler import APScheduler
@@ -7,8 +8,8 @@ import namegenerator
 import utilities
 from threading import Lock
 import click
-import os
 from datetime import datetime
+from tools.confighelper import DectWIPConfig
 
 print('Make sure Subscription and Auto-Create are enabled')
 
@@ -25,13 +26,13 @@ def connect():
 
         req_json = request.get_json()
 
-        user_extension = requests.get(f"http://{dect_wip_ip}/api/v1/GetUserExtensionByToken/{req_json['token']}").json()
+        user_extension = requests.get(f"http://{config.dect_wip_internal_ip}:{config.dect_wip_port}/api/v1/GetUserExtensionByToken/{req_json['token']}").json()
 
         extension = user_extension['extension']
         password = user_extension['password']
         displayname = user_extension['name']
     
-        temp_extenison = requests.get(f"http://{dect_wip_ip}/api/v1/GetTempExtensionByCallerid/{req_json['callerid']}").json()
+        temp_extenison = requests.get(f"http://{config.dect_wip_internal_ip}:{config.dect_wip_port}/api/v1/GetTempExtensionByCallerid/{req_json['callerid']}").json()
     
         ppn = temp_extenison['ppn']
         uid = temp_extenison['uid']
@@ -78,55 +79,41 @@ def makeTemps():
 
             print(data)
     
-            response = requests.post(f"http://{dect_wip_ip}/api/v1/AddTempExtensionToDB", json=data)
+            response = requests.post(f"http://{config.dect_wip_internal_ip}:{config.dect_wip_port}/api/v1/AddTempExtensionToDB", json=data)
             print(response.text)
 
 def init(config_path):
 
     # setup global config
 
-    global config, dect_wip_ip, omm_ip, omm_port, omm_username, omm_password, client 
+    global config, client
 
-    print(f'Using config: {config_path}')
-
-    config = configparser.ConfigParser()
-    config.read(config_path)
-
-    omm_ip = config['omm'].get('ip')
-    omm_port = config['omm'].getint('port')
-    omm_username = config['omm'].get('username')
-    omm_password = (
-    open(os.getenv('OMM_PW_PATH')).read().strip() 
-    if os.getenv('OMM_PW_PATH') else config['omm'].get('password')
-    )
+    config = DectWIPConfig(config_path=config_path)
 
     try:
         client = mitel_ommclient2.OMMClient2(
-            host=omm_ip,
-            port=omm_port,
-            username=omm_username,
-            password=omm_password,
+            host=config.omm_ip,
+            port=config.omm_port,
+            username=config.omm_username,
+            password=config.omm_password,
             ommsync=True
         )
     except (TimeoutError) as e:
         raise RuntimeError("Connection to OMM timed out") from e
-
-    dect_wip_ip = os.getenv('DECT_WIP_IP', '127.0.0.1:8080')
 
     scheduler.init_app(app)
     scheduler.start()
 
 
 @click.command()
-@click.option('--config', 'config_path', envvar='CONFIG', default='/etc/dect-wip.ini', help='optional config location')
+@click.option('--config', 'config_path', envvar='CONFIG_PATH', default='/etc/dect-wip.ini', help='optional config location')
 def init_dev(config_path):
     init(config_path)
     # run webserver/app
-    app.run(host='0.0.0.0', port=8081, debug=False, use_reloader=True)
+    app.run(host=config.ommsync_listen_ip, port=config.ommsync_port, debug=False, use_reloader=True)
 
 def init_wsgi():
-    config_path = os.getenv('CONFIG', '/etc/dect-wip.ini')
-    init(config_path)
+    init(os.environ.get('CONFIG_PATH', '/etc/dect-wip.ini'))
     return app
 
 if __name__ == "__main__":
