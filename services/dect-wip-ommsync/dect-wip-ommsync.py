@@ -102,7 +102,7 @@ def init(config_path):
         client = mitel_ommclient2.OMMClient2(
             host=config.omm_ip,
             port=config.omm_port,
-            use_ssl=config.omm_usessl,
+            use_ssl=config.omm_use_ssl,
             username=config.omm_username,
             password=config.omm_password,
             ommsync=True
