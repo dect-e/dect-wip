@@ -108,7 +108,7 @@ def init_ommclient():
         raise RuntimeError("Connection to OMM timed out") from e
 
 @scheduler.task('interval', id='retry_connection', seconds=10, next_run_time=datetime.now(), max_instances=1)
-def enable_subscription():
+def retry_connection():
     with lock:
         try:
             if not client.ping():
