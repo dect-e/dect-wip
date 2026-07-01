@@ -9,6 +9,8 @@ import utilities
 from threading import Lock
 import click
 from datetime import datetime
+import traceback
+import sys
 from tools.confighelper import DectWIPConfig
 
 lock = Lock()
@@ -90,13 +92,8 @@ def enable_subscription():
                 print("enabling subscription on OMM")
                 client.set_dect_subscription_mode('Configured')
 
-def init(config_path):
-
-    # setup global config
-
-    global config, client
-
-    config = DectWIPConfig(config_path=config_path)
+def init_ommclient():
+    global client
 
     try:
         client = mitel_ommclient2.OMMClient2(
@@ -107,8 +104,35 @@ def init(config_path):
             password=config.omm_password,
             ommsync=True
         )
-    except (TimeoutError) as e:
+    except TimeoutError as e:
         raise RuntimeError("Connection to OMM timed out") from e
+
+@scheduler.task('interval', id='retry_connection', seconds=10, next_run_time=datetime.now(), max_instances=1)
+def retry_connection():
+    with lock:
+        try:
+            if not client.ping():
+                raise RuntimeError("No reponse received after ping")
+        except Exception as e:
+            print("ommclient2 ping failed, recreating connection")
+            traceback.print_exception(e)
+
+            try:
+                init_ommclient()
+            except Exception as e:
+                print("ommclient2 init connection failed, exiting")
+                traceback.print_exception(e)
+                sys.exit(1)
+
+def init(config_path):
+
+    # setup global config
+
+    global config
+
+    config = DectWIPConfig(config_path=config_path)
+
+    init_ommclient()
 
     scheduler.init_app(app)
     scheduler.start()
